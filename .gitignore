@@ -277,3 +277,11 @@ CMakeUserPresets.json
 
 .claude/settings.local.json
 _deps/
+
+# Vendored directories - never ignore (muse_deps was caught by '*_deps/*', CI scripts by 'build.*')
+!muse_deps/**
+!muse/buildscripts/ci/linux/build.sh
+!muse/buildscripts/ci/macos/build.sh
+!muse/buildscripts/ci/wasm/build.sh
+!muse/buildscripts/ci/withoutqt/build.sh
+!muse/buildscripts/ci/windows/build.bat
