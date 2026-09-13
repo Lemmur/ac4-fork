@@ -8,6 +8,11 @@
 *.wav -text
 *.au -text
 *.ico -text
+# and fonts / docs vendored from muse
+*.ttf -text
+*.otf -text
+*.ftx -text
+*.pdf -text
 # and weird stuff in lib-src
 *.ttl text=auto
 *.aps text=auto

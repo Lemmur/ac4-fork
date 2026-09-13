@@ -1,0 +1,139 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-only
+ * MuseScore-CLA-applies
+ *
+ * MuseScore Studio
+ * Music Composition & Notation
+ *
+ * Copyright (C) 2021 MuseScore Limited and others
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#pragma once
+
+#include <set>
+#include <string>
+#include <string_view>
+#include <list>
+#include <utility>
+#include <vector>
+
+#include <QKeySequence>
+
+#include "global/stringutils.h"
+
+namespace muse::shortcuts {
+struct Shortcut
+{
+    // actions
+    std::string action;
+    std::string context;
+
+    // commands
+    std::string command;
+    std::string scope;
+
+    // common
+    std::vector<std::string> sequences;
+    QKeySequence::StandardKey standardKey = QKeySequence::UnknownKey;
+    bool autoRepeat = true;
+
+    Shortcut() = default;
+    Shortcut(const std::string& a)
+        : action(a) {}
+
+    bool isValid() const
+    {
+        return !action.empty() || !command.empty();
+    }
+
+    bool operator ==(const Shortcut& sc) const
+    {
+        return action == sc.action
+               && context == sc.context
+               && command == sc.command
+               && scope == sc.scope
+               && sequences == sc.sequences
+               && standardKey == sc.standardKey
+               && autoRepeat == sc.autoRepeat;
+    }
+
+    std::string sequencesAsString() const { return sequencesToString(sequences); }
+
+    static std::string sequencesToString(const std::vector<std::string>& seqs)
+    {
+        return muse::strings::join(seqs, ", ");
+    }
+
+    static std::vector<std::string> sequencesFromString(const std::string& str)
+    {
+        std::vector<std::string> seqs;
+        muse::strings::split(str, seqs, ", ");
+        return seqs;
+    }
+
+    void clear()
+    {
+        sequences.clear();
+        standardKey = QKeySequence::StandardKey::UnknownKey;
+    }
+};
+
+using ShortcutList = std::list<Shortcut>;
+
+inline bool needIgnoreKey(Qt::Key key)
+{
+    static const std::set<Qt::Key> ignoredKeys {
+        Qt::Key_Shift,
+        Qt::Key_Control,
+        Qt::Key_Meta,
+        Qt::Key_Alt,
+        Qt::Key_AltGr,
+        Qt::Key_CapsLock,
+        Qt::Key_NumLock,
+        Qt::Key_ScrollLock,
+        Qt::Key_unknown
+    };
+
+    return ignoredKeys.find(key) != ignoredKeys.end();
+}
+
+inline std::pair<Qt::Key, Qt::KeyboardModifiers> correctKeyInput(Qt::Key key, Qt::KeyboardModifiers modifiers)
+{
+    // replace Backtab with Shift+Tab
+    if (key == Qt::Key_Backtab && modifiers == Qt::ShiftModifier) {
+        key = Qt::Key_Tab;
+    }
+
+    modifiers &= ~Qt::KeypadModifier;
+
+    return { key, modifiers };
+}
+
+inline QString sequencesToNativeText(const std::vector<std::string>& sequences)
+{
+    std::vector<std::string> seqs;
+
+    for (const std::string& sequence : sequences) {
+        seqs.push_back(QKeySequence(QString::fromStdString(sequence)).toString(QKeySequence::NativeText).toStdString());
+    }
+
+    return QString::fromStdString(Shortcut::sequencesToString(seqs));
+}
+
+inline bool canShortcutsConflict(const std::string& scope1, const std::string& scope2)
+{
+    return scope1 == scope2;
+}
+}

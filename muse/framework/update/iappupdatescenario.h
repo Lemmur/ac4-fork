@@ -1,0 +1,61 @@
+/*
+ * SPDX-License-Identifier: GPL-3.0-only
+ * MuseScore-CLA-applies
+ *
+ * MuseScore Studio
+ * Music Composition & Notation
+ *
+ * Copyright (C) 2025 MuseScore Limited and others
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#pragma once
+
+#include "types/ret.h"
+#include "async/promise.h"
+#include "async/notification.h"
+
+#include "modularity/imoduleinterface.h"
+
+namespace muse::update {
+class IAppUpdateScenario : MODULE_CONTEXT_INTERFACE
+{
+    INTERFACE_ID(IAppUpdateScenario)
+
+public:
+    virtual ~IAppUpdateScenario() = default;
+
+    virtual bool needCheckForUpdate() const = 0;
+    virtual void checkForUpdate(bool manual) = 0;
+
+    virtual bool hasUpdate() const = 0;
+
+    //! A downloaded update is ready to be installed in-place.
+    virtual bool hasReadyUpdate() const = 0;
+    virtual async::Notification hasReadyUpdateChanged() const = 0;
+    virtual std::string readyUpdateVersion() const = 0;
+
+    //! Install the already-downloaded update (asks to restart, then applies it).
+    virtual void installReadyUpdate() = 0;
+    //! Show the release notes of the ready update, with install/skip actions.
+    virtual void showReadyUpdateInfo() = 0;
+    //! Hide the ready update banner for this session (the package is kept).
+    virtual void dismissReadyUpdate() = 0;
+
+    //! This launch is the first one after an update was installed.
+    virtual bool hasCompletedUpdate() const = 0;
+    virtual async::Notification hasCompletedUpdateChanged() const = 0;
+    virtual void dismissCompletedUpdate() = 0;
+};
+}
