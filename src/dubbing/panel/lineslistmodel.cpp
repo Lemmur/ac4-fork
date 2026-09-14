@@ -138,6 +138,11 @@ void LinesListModel::buildFromSnapshot(const DubbingMeta& meta)
         bool expanded = (it != m_expandedByKey.end()) ? it->second : firstScene;
         firstScene = false;
 
+        //! Материализуем состояние (вкл. default «первая раскрыта») в карту:
+        //! иначе toggleScene впервые-раскрытой сцены получил бы false и
+        //! вместо сворачивания раскрыл бы её ещё раз (клик «не срабатывает»).
+        m_expandedByKey[sectionKey.toStdString()] = expanded;
+
         Row header;
         header.type = SceneHeaderRow;
         header.sectionKey = sectionKey;

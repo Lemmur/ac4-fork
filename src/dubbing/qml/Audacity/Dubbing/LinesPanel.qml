@@ -243,6 +243,14 @@ Item {
 
                 isSelected: !isHeader && model.guid === root.currentGuid
 
+                //! Фон заголовка — чуть темнее фона панели (выделение секций)
+                Rectangle {
+                    anchors.fill: parent
+                    visible: rowItem.isHeader
+
+                    color: ui.theme.backgroundSecondaryColor
+                }
+
                 //! ----- Заголовок сцены (quest_id из JSON) -----
                 RowLayout {
                     anchors.fill: parent
@@ -251,12 +259,11 @@ Item {
                     spacing: 8
                     visible: rowItem.isHeader
 
-                    //! Стрелка раскрытия (акцентный цвет заголовка)
+                    //! Стрелка раскрытия
                     StyledIconLabel {
                         Layout.preferredWidth: 14
 
                         iconCode: IconCode.ARROW_RIGHT
-                        color: ui.theme.accentColor
                         rotation: model.expanded ? 90 : 0
 
                         Behavior on rotation {
@@ -268,7 +275,6 @@ Item {
                         Layout.fillWidth: true
 
                         text: model.sectionTitle
-                        color: ui.theme.accentColor
                         font: ui.theme.bodyBoldFont
                         horizontalAlignment: Text.AlignLeft
                         elide: Text.ElideRight
