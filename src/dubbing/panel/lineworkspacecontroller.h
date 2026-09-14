@@ -18,6 +18,7 @@
 #include "modularity/ioc.h"
 #include "context/iglobalcontext.h"
 #include "trackedit/iselectioncontroller.h"
+#include "trackedit/internal/itracknavigationcontroller.h" //!< интерфейс в internal (как в trackedit-тестах)
 #include "playback/iplaybackcontroller.h"
 
 #include "../idubbingproject.h"
@@ -51,6 +52,7 @@ public:
     muse::ContextInject<IDubbingProject> dubbingProject = { this };
     muse::ContextInject<context::IGlobalContext> globalContext = { this };
     muse::ContextInject<trackedit::ISelectionController> selectionController = { this };
+    muse::ContextInject<trackedit::ITrackNavigationController> trackNavigationController = { this };
     muse::ContextInject<playback::IPlaybackController> playbackController = { this };
 
 public: // QQmlParserStatus

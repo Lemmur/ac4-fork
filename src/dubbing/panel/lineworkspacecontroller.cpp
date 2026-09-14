@@ -101,10 +101,15 @@ bool LineworkspaceController::openLine(const QString& guid)
         return false;
     }
 
-    //! 1. Выделение референс-клипа (подсветка в представлении дорожек).
+    //! 1. Выделение референс-клипа (подсветка в представлении дорожек) +
+    //! фокус дорожки — тот же путь, что клик по клипу в UI
+    //! (trackclipslistmodel.cpp) и программное выделение эффектов
+    //! (effectexecutionscenario.cpp): set без предварительного reset.
     const trackedit::ClipKey clipKey { line->refTrackId, line->refClipId };
-    selection->resetSelectedClips();
     selection->setSelectedClips({ clipKey }, true);
+    if (auto nav = trackNavigationController()) {
+        nav->setFocusedTrack(clipKey.trackId, false);
+    }
 
     //! 2. Позиция воспроизведения в начало клипа: тот же путь, что у
     //! PlaybackStateModel (playbackcontroller setLastPlaybackSeekTime);

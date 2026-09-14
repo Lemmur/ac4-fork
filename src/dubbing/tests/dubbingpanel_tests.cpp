@@ -442,6 +442,7 @@ protected:
         controller->dubbingProject.set(m_service);
         controller->globalContext.set(m_globalContext);
         controller->selectionController.set(m_selectionController);
+        controller->trackNavigationController.set(m_trackNavigationController);
         controller->playbackController.set(m_playbackController);
         return controller;
     }
@@ -801,6 +802,9 @@ TEST_F(DubbingPanelTests, OpenLine_SelectsClipAndSeeks)
             EXPECT_EQ(clips[0].trackId, line->refTrackId);
             EXPECT_EQ(clips[0].itemId, line->refClipId);
         }));
+
+    //! фокус дорожки референса (путь UI-клика: trackclipslistmodel.cpp:803)
+    EXPECT_CALL(*m_trackNavigationController, setFocusedTrack(line->refTrackId, false)).Times(1);
 
     //! позиция воспроизведения = начало референс-клипа (первый клип дорожки -> 0.0);
     //! number_t<double> не матчится DoubleNear — снимаем значение через Invoke
