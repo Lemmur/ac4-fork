@@ -114,22 +114,21 @@ Expected: false; плюс `removeIfExists` не может удалить защ
   [`src/app/appfactory.cpp`](../../src/app/appfactory.cpp) и
   `src/app/CMakeLists.txt`, `src/CMakeLists.txt`, опция
   `AU_BUILD_DUBBING_TESTS` в корневом [`CMakeLists.txt`](../../CMakeLists.txt).
-  IOC-интерфейс `idubbingproject.h` и настройки `dubbingconfiguration.*`
-  переносятся в M2 (появится первый потребитель — импорт/панель).
-- Расширения: [`src/project/types/projecttypes.h`](../../src/project/types/projecttypes.h)
-  (`ProjectCreateOptions` + признак дубляжа),
-  [`src/project/qml/Audacity/Project/NewProjectDialog.qml`](../../src/project/qml/Audacity/Project/NewProjectDialog.qml)
-  + [`src/project/view/newprojectmodel.*`](../../src/project/view/newprojectmodel.h)
-  (выбор типа «Обычный/Дубляж»), projectmeta (флаг типа), страница настроек
-  Dubbing в `src/preferences`.
+  IOC-интерфейс `idubbingproject.h`, настройки `dubbingconfiguration.*`,
+  диалог выбора типа «Обычный/Дубляж» в NewProjectDialog.qml и страница
+  настроек Dubbing переносятся в M2 (появится первый потребитель —
+  импорт/панель).
 
 **Механизм отмены:** `DubbingStateExtension` в UndoStack au3; правки
 метаданных — `pushHistoryState` / `modifyState(typeid(DubbingStateExtension))`
 (дословно [`src/trackedit/iprojecthistory.h:44-51`](../../src/trackedit/iprojecthistory.h)).
 
-**Сложность/риски:** средняя. Риски: формат blob (митигируется версией
-схемы); взаимодействие `ProjectFileIOExtensionRegistry` с автосейвом
-(проверить `OnUpdateSaved` при AutoSave — тестом).
+**Сложность/риски:** средняя. Риски: эволюция XML-схемы тега `<dubbing>`
+(митигируется атрибутом `version` + миграциями при чтении); объём XML при
+десятках тысяч реплик (строки в атрибутах; при необходимости M2 переводит
+тексты в blob-атрибут — `HandleXMLBlob` уже поддержан фреймворком).
+Риск автосейва снят тестом: AutoSave идёт тем же WriteXML-путём, тег
+попадает в снимок автоматически.
 
 **Критерий готовности (тест):** создать дубляж-проект → изменить RU-текст
 реплики → undo/redo восстанавливает текст → сохранить → переоткрыть файл на
@@ -143,9 +142,12 @@ RegularProject_NotDubbing. Автосейв с данными дубляжа о�
 путём WriteXML (AutoSave вызывает WriteXML → CallWriters → наш тег).
 Диалог создания проекта с выбором типа — в M2 (вместе с IOC-сервисом).
 
-**Переиспользуется/расширяется/с нуля:** переиспользуются ProjectFileIO,
-ProjectFileIOExtension-механика, UndoStack-расширения; расширяются project
-(тип, диалог); с нуля — домен, сериализация, настройки.
+**Переиспользуется/расширяется/с нуля:** переиспользуются ProjectFileIO
+(Save/Load/AutoSave как есть), `ProjectFileIORegistry`-механика
+(ObjectWriterEntry/ObjectReaderEntry), UndoStack-расширения
+(UndoStateExtension); расширяются project (признак типа) и проводка
+приложения; с нуля — домен, XML-сериализация, тест; IOC-сервис и настройки —
+M2.
 
 ## M2. Импорт JSON + массовый импорт WAV по guid (§6.2)
 
