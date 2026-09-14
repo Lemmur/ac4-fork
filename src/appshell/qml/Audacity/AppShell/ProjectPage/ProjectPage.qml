@@ -452,8 +452,8 @@ DockPage {
 
             navigationSection: root.navigationPanelSec(linesPanel.location)
 
-            width: 468
-            minimumWidth: 340
+            width: 460
+            minimumWidth: 360
             maximumWidth: 720
 
             groupName: root.verticalPanelsGroup

@@ -28,9 +28,9 @@ Item {
 
     readonly property int lineRowHeight: 52
     readonly property int headerRowHeight: 32
-    readonly property int colStatusWidth: 26
-    readonly property int colSpeakerWidth: 92
-    readonly property int colDurWidth: 62
+    readonly property int colSpeakerWidth: 80
+    readonly property int colDurWidth: 56
+    readonly property int listRightMargin: 18 //!< запас справа: вертикальный скроллбар
 
     //! Активен ли хоть один фильтр/поиск: в этом режиме модель даёт плоский
     //! список всех реплик файла (включая свёрнутые секции), без заголовков.
@@ -121,13 +121,15 @@ Item {
                 }
             }
 
-            RowLayout {
+            //! Фильтры: Flow — автоматический перенос на новую строку в узкой
+            //! панели (RowLayout не переносится и обрезался справа)
+            Flow {
                 Layout.fillWidth: true
                 spacing: 8
 
                 StyledDropdown {
                     id: statusDropdown
-                    Layout.preferredWidth: 136
+                    width: 136
 
                     //! value: -1 = все статусы (dubbingtypes.h LineStatus)
                     model: [
@@ -176,13 +178,9 @@ Item {
                     }
                 }
 
-                Item {
-                    Layout.fillWidth: true
-                }
-
                 FlatButton {
                     visible: !filteringActive()
-                    text: "Свернуть всё"
+                    text: "Свернуть"
 
                     onClicked: {
                         linesModel.setAllScenesExpanded(false)
@@ -191,7 +189,7 @@ Item {
 
                 FlatButton {
                     visible: !filteringActive()
-                    text: "Развернуть всё"
+                    text: "Развернуть"
 
                     onClicked: {
                         linesModel.setAllScenesExpanded(true)
@@ -210,6 +208,8 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.topMargin: 4
+
+            clip: true //!< контент не должен рисоваться за границами панели
 
             model: filterModel
 
@@ -231,7 +231,7 @@ Item {
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 6
-                    anchors.rightMargin: 10
+                    anchors.rightMargin: root.listRightMargin
                     spacing: 8
                     visible: rowItem.isHeader
 
@@ -276,7 +276,7 @@ Item {
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 20
-                    anchors.rightMargin: 10
+                    anchors.rightMargin: root.listRightMargin
                     spacing: 8
                     visible: !rowItem.isHeader
 
