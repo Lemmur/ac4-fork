@@ -49,6 +49,10 @@ build/*
 dist/
 # Сгенерированные проекты для ручной проверки (M3+)
 manual_check/
+# Автосейвы приложения, созданные при ручном тестировании из корня репо
+*.aup4unsaved
+*.aup4unsaved-shm
+*.aup4unsaved-wal
 
 # Waf build output
 lib-src/lv2/.buildvars
