@@ -70,6 +70,8 @@ namespace {
 const std::string SAMPLE_JSON = std::string(dubbing_tests_DATA_ROOT) + "/data/sample.json";
 
 const char* GUID_FIRST = "6046256F4DF7E505F0906FBE58C09951";   //!< dur 1.861
+const char* GUID_SECOND = "1C89F59B48693450902DBC8F43F87202";  //!< dur 1.075
+const char* GUID_MISMATCH = "2A0F59574157D9EAD561A992313C42EE"; //!< dur 1.732, WAV 2.2 c -> расхождение
 const char* GUID_NO_WAV = "41E304C446621137356856820F7BD252";  //!< WAV не даём
 
 //! Синтетический WAV: RIFF/WAVE, PCM 16 бит, моно 44100, тишина.
@@ -770,5 +772,39 @@ TEST_F(DubbingPanelTests, ActualDur_SavedAndReloaded)
 
     accessor2->close();
     ProjectFileIO::RemoveProject(wxString::FromUTF8(path.string().c_str()));
+}
+
+//! Генератор проекта для РУЧНОЙ проверки M1–M3 через exe (инструкция —
+//! отчёт сессии / SESSION_NOTES): sample.json + 3 WAV (один с расхождением
+//! длительности, 44 реплики без референса), одна правка RU-текста.
+//! Файл: <repo>/manual_check/m3_dubbing_demo.aup4 — открыть в
+//! dist\bin\Audacity4.exe, меню «Вид -> Реплики».
+TEST_F(DubbingPanelTests, ManualCheck_CreateDemoProject)
+{
+    std::error_code ec;
+    std::filesystem::remove_all(wavDir(), ec);
+    writeSilenceWav(wavDir() / (std::string(GUID_FIRST) + ".wav"), 1.861);
+    writeSilenceWav(wavDir() / (std::string(GUID_SECOND) + ".wav"), 1.075);
+    writeSilenceWav(wavDir() / (std::string(GUID_MISMATCH) + ".wav"), 2.2); //!< расхождение: dur 1.732
+
+    auto result = m_service->importProject(muse::io::path_t(SAMPLE_JSON),
+                                           muse::io::path_t(wavDir().string()));
+    ASSERT_TRUE(result.ok);
+    ASSERT_EQ(result.json.linesTotal, 47);
+    ASSERT_EQ(result.wav.importedCount, 3);
+    ASSERT_EQ(result.wav.mismatches.size(), 1u);
+
+    ASSERT_TRUE(m_service->setLineRu(GUID_FIRST, "Правка текста для ручной проверки"));
+
+    const auto out = std::filesystem::weakly_canonical(
+        std::filesystem::path(dubbing_tests_DATA_ROOT) / "../../../manual_check/m3_dubbing_demo.aup4");
+    std::filesystem::create_directories(out.parent_path());
+
+    ProjectHistory::Get(projectRef()).InitialState();
+    ASSERT_TRUE(m_accessor->save(muse::io::path_t(out.string())));
+    ASSERT_TRUE(std::filesystem::exists(out));
+
+    std::cout << "\n[MANUAL] Проект для ручной проверки M3: " << out.string() << "\n"
+              << "[MANUAL] Открыть в dist\\bin\\Audacity4.exe -> Вид -> Реплики\n" << std::endl;
 }
 }
