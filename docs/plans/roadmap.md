@@ -23,7 +23,9 @@ flowchart LR
     M0["M0 сборка"] --> M1["M1 ядро домена"]
     M1 --> M2["M2 импорт"]
     M2 --> M3["M3 панель реплик"]
-    M1 --> M4["M4 запись тейков"]
+    M2 --> M25["M2.5 Sidecar-контракт"]
+    M25 --> M4["M4 запись тейков"]
+    M1 --> M4
     M4 --> M5["M5 оценка тейков"]
     M4 --> M6["M6 операции"]
     M3 --> M7["M7 восстановление"]
@@ -333,6 +335,12 @@ uicomponents, workspace; расширяются ProjectPage.qml/ProjectPageModel
    ОДИН pushHistoryState («Правка текста реплики») на правку; применяется
    по Enter/потере фокуса поля. Тест `PanelTextEdit_UndoRedo_ModelFollows`
    доказывает undo/redo и автоматическое обновление модели.
+   **Промежуточное состояние:** RU-правка сейчас пишет ТОЛЬКО in-memory
+   домен (персистентность — тег <dubbing> в .aup4); запись в
+   phrases_status/ — M2.5 (Sidecar-контракт, architecture.md §16).
+9-бис. (2026-09-14, решение владельца — вариант А) при открытии рабочей
+   зоны двойным кликом — автофокус в поле RU; в заголовке рабочей зоны
+   метка «Референс: X.XX с» (lineInfo += refStart; -1 = «Нет референса»).
 9. Редизайн по требованию владельца (та же ветка): заголовок первого
    уровня (файл игры) выбирается Select'ом НАД списком (`fileId`/
    `fileIds()` модели, авто-выбор первого); сцены (quest_id) —
@@ -363,7 +371,62 @@ ManualCheck_CreateDemoProject — генератор .aup4 для ручной �
 по инструкции из SESSION_NOTES (демо-проект manual_check/.
 m3_dubbing_demo.aup4).
 
+## M2.5. Sidecar-контракт: phrases/ + phrases_status/ (architecture.md §16)
+
+**Статус: спроектировано (решение заказчика, категория 2 AGENTS.md §9);
+код НЕ писать до явного разрешения.**
+
+Решение: вариант B — оверлей статусов. Исходные quest-файлы студии
+(phrases/) остаются byte-identical (read-only); наш слой —
+phrases_status/{тот же filename}.json, плоский по guid: status
+(not_started/recorded/approved), ru_override, base_ru_snapshot,
+updated_at. Чтение: effective_ru = ru_override ?? phrases[guid].ru;
+effective_status = status ?? not_started.
+
+Чеклист M2.5 (реализация после разрешения):
+1. Миграция M1-парсера на реальный формат студии: файл = quest-файл
+   (два уровня: scene_id -> guid; агрегат sample.json — не целевой
+   формат). Группировка по scene_id — как сцены дерева, НЕ по спикеру.
+2. Опциональный dur: не пропускать реплику (сейчас — ошибка и пропуск,
+   dubbingjsonreader.cpp:323-327); dur=null -> сравнение с actualDur
+   не выполняется, фильтр «расхождение» молчит, колонка «Длит.» =
+   actualDur (architecture.md §16.6).
+3. Чтение/запись phrases_status/ (QJsonDocument, UTF-8, один файл на
+   quest): запись ru_override + base_ru_snapshot + updated_at; правки
+   двух guid с одинаковым текстом независимы.
+4. Детект устаревания: base_ru_snapshot != новый phrases[guid].ru ->
+   данные для warning «перевод обновлён студией» (UI-индикация
+   минимальная — здесь, полный UI — M4/M5).
+5. Line -> источник: GameFile.fileId = имя quest-файла (без пути);
+   персистентность уже есть (тег <file id>).
+6. Статусы (not_started/recorded/approved) — source of truth в
+   phrases_status; отображение в колонке статуса панели M3 (маппинг на
+   русский: не начата/записана/утверждена).
+7. Атомарность правки RU: pushHistoryState ОДНОЙ операцией (домен +
+   физическая запись phrases_status/{quest}.json); undo — повторная
+   запись предыдущего снапшота файла (architecture.md §16.5).
+8. Открытый вопрос к владельцу: debounce записи на диск (рекомендация:
+   писать сразу; debounce — только по замерам).
+
+Затрагиваемые файлы (предварительно): `src/dubbing/import/
+dubbingjsonreader.*` (формат + dur), новый `src/dubbing/sidecar/`
+(чтение/запись phrases_status), `src/dubbing/internal/dubbingservice.*`
+(setLineRu: побочная запись файла), `dubbingtypes.h`, новый тест
+`sidecar_tests.cpp`; фикстуры существующих M2/M3-тестов — переводить на
+реальный формат (по отдельному решению при старте M2.5).
+
 ## M4. Запись: циклические тейки, locked-референс, мастер (§6.4)
+
+**Контракт WORK-зоны таймлайна (решение заказчика 2026-09-14,
+architecture.md §17).** Пакет MyDub/ = {MyDub.aup4, phrases/ (read-only
+зеркало исходников), phrases_status/ (оверлей), refs/{guid}.wav,
+takes/{guid}/takeN.wav, outs/{guid}.wav}; guid — плоский общий
+namespace для refs/takes/outs, независимо от scene_id и файла квеста.
+Таймлайн при выборе реплики: REF-хранилище (M2) скрыто (источник
+refClipId); WORK REF — референс только выбранной реплики; WORK TAKES —
+её тейки (takes/{guid}/*.wav); WORK OUT — outs/{guid}.wav если есть;
+MASTER OUT — собранный дубляж, виден постоянно. Переключение реплики =
+перезаполнение WORK-зоны, НЕ мутация истории вставкой/удалением клипов.
 
 **Muse-модули:** расширение `src/dubbing` (каталог `record/`) + правки
 `src/record`, `src/trackedit`, `src/projectscene`.
