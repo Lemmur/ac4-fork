@@ -11,6 +11,8 @@ set(MODULE_TEST_SRC
 
     ${CMAKE_CURRENT_LIST_DIR}/dubbingimport_tests.cpp
 
+    ${CMAKE_CURRENT_LIST_DIR}/dubbingpanel_tests.cpp
+
     # DropController линкуется из importer.lib (importFromSystemClipboard);
     # тянуть весь projectscene в тест не нужно — компилируем точечно
     ${CMAKE_SOURCE_DIR}/src/projectscene/view/tracksitemsview/dropcontroller.cpp
@@ -32,6 +34,7 @@ set(MODULE_TEST_LINK
     au3-track
     au3-strings
     trackedit # реальные Au3TracksInteraction / Au3ProjectHistory + моки
+    playback  # PlaybackControllerMock (двойной клик: позиция воспроизведения)
     importer  # реальный Au3Importer (строительный блок importIntoTrack)
     # прямые зависимости заголовков Au3Importer (au3importer.h -> Import.h и др.)
     au3-file-formats
