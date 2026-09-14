@@ -182,6 +182,7 @@ Item {
                 CheckBox {
                     id: unknownBox
                     text: "UNKNOWN"
+                    scale: 0.85
 
                     //! muse CheckBox не переключает checked сам — вручную
                     onClicked: {
@@ -194,6 +195,7 @@ Item {
                 CheckBox {
                     id: mismatchBox
                     text: "Расхождение"
+                    scale: 0.85
 
                     onClicked: {
                         mismatchBox.checked = !mismatchBox.checked
@@ -205,6 +207,7 @@ Item {
                 CheckBox {
                     id: noRefBox
                     text: "Без референса"
+                    scale: 0.85
 
                     onClicked: {
                         noRefBox.checked = !noRefBox.checked
@@ -248,11 +251,12 @@ Item {
                     spacing: 8
                     visible: rowItem.isHeader
 
-                    //! Стрелка раскрытия
+                    //! Стрелка раскрытия (акцентный цвет заголовка)
                     StyledIconLabel {
                         Layout.preferredWidth: 14
 
                         iconCode: IconCode.ARROW_RIGHT
+                        color: ui.theme.accentColor
                         rotation: model.expanded ? 90 : 0
 
                         Behavior on rotation {
@@ -264,6 +268,7 @@ Item {
                         Layout.fillWidth: true
 
                         text: model.sectionTitle
+                        color: ui.theme.accentColor
                         font: ui.theme.bodyBoldFont
                         horizontalAlignment: Text.AlignLeft
                         elide: Text.ElideRight
