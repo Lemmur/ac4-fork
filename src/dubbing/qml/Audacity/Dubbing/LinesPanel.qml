@@ -27,7 +27,7 @@ Item {
     property string currentGuid: "" //!< реплика, открытая в рабочей зоне
 
     onCurrentGuidChanged: {
-        //! Вариант А (решение владельца): при открытии рабочей зоны —
+        //! M3-followup (решение владельца): при открытии рабочей зоны —
         //! автофокус в поле RU (правка сразу под руками)
         if (currentGuid !== "") {
             Qt.callLater(ruEdit.ensureActiveFocus)
