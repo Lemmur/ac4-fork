@@ -1,11 +1,15 @@
 /*
 * Audacity: A Digital Audio Editor
 *
-* Панель списка реплик (M3, §6.3): тулбар фильтров (поиск, UNKNOWN,
-* статус, расхождение, без референса) + виртуализованный список
-* (ListView создаёт делегаты только для видимых строк — десятки тысяч
-* реплик без лагов) + рабочая зона реплики (EN / RU с правкой через
-* undo-штатный LineworkspaceController::setRuText).
+* Панель списка реплик (M3, §6.3, редизайн по требованию владельца):
+* - Select файла игры (заголовок первого уровня) НАД списком;
+* - сцены (quest_id) — раскрывающиеся заголовки;
+* - строка реплики: статус · спикер · EN над RU · длительность в конце;
+* - фильтры UNKNOWN/статус/расхождение/без референса + полнотекстовый
+*   поиск (при активных фильтрах список — плоские результаты без
+*   заголовков); рабочая зона реплики с правкой RU через undo-штатный
+*   LineworkspaceController::setRuText.
+* Виртуализация: ListView создаёт делегаты только видимых строк.
 * Весь пользовательский текст — на русском (AGENTS.md §5).
 */
 import QtQuick
@@ -22,11 +26,22 @@ Item {
 
     property string currentGuid: "" //!< реплика, открытая в рабочей зоне
 
-    readonly property int rowHeight: 36
-    readonly property int colStatusWidth: 106
-    readonly property int colSpeakerWidth: 88
+    readonly property int lineRowHeight: 52
+    readonly property int headerRowHeight: 32
+    readonly property int colStatusWidth: 26
+    readonly property int colSpeakerWidth: 92
     readonly property int colDurWidth: 62
-    readonly property int colMismatchWidth: 62
+
+    //! Активен ли хоть один фильтр/поиск: в этом режиме модель даёт плоский
+    //! список всех реплик файла (включая свёрнутые секции), без заголовков.
+    function filteringActive() {
+        return unknownBox.checked || statusDropdown.currentIndex > 0
+               || mismatchBox.checked || noRefBox.checked || Boolean(searchField.searchText)
+    }
+
+    function syncFilteringMode() {
+        linesModel.filteringActive = filteringActive()
+    }
 
     LinesListModel {
         id: linesModel
@@ -45,11 +60,53 @@ Item {
         anchors.fill: parent
         spacing: 0
 
-        //! ---------- Тулбар фильтров ----------
+        //! ---------- Тулбар: файл + поиск ----------
         ColumnLayout {
             Layout.fillWidth: true
             Layout.margins: 8
             spacing: 8
+
+            //! Заголовок первого уровня (файл игры) — Select над списком
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                StyledTextLabel {
+                    text: "Файл:"
+                }
+
+                StyledDropdown {
+                    id: fileSelect
+                    Layout.fillWidth: true
+
+                    property var items: []
+
+                    model: items
+                    currentIndex: items.length > 0 ? 0 : -1
+
+                    onActivated: function(index, value) {
+                        if (value !== undefined && value !== null) {
+                            linesModel.fileId = value
+                        }
+                    }
+
+                    Connections {
+                        target: linesModel
+
+                        function onReloaded() {
+                            //! файлы из домена; текущий — выбранным элементом
+                            var ids = linesModel.fileIds()
+                            var items = []
+                            for (var i = 0; i < ids.length; ++i) {
+                                items.push({ text: ids[i], value: ids[i] })
+                            }
+                            fileSelect.items = items
+                            fileSelect.currentIndex = items.length > 0
+                                                   ? fileSelect.indexOfValue(linesModel.fileId) : -1
+                        }
+                    }
+                }
+            }
 
             SearchField {
                 id: searchField
@@ -60,6 +117,7 @@ Item {
 
                 onSearchTextChanged: {
                     filterModel.searchText = searchText
+                    syncFilteringMode()
                 }
             }
 
@@ -84,6 +142,7 @@ Item {
 
                     onActivated: function(index, value) {
                         filterModel.statusFilter = value
+                        syncFilteringMode()
                     }
                 }
 
@@ -93,6 +152,7 @@ Item {
 
                     onClicked: {
                         filterModel.onlyUnknown = checked
+                        syncFilteringMode()
                     }
                 }
 
@@ -102,6 +162,7 @@ Item {
 
                     onClicked: {
                         filterModel.onlyMismatch = checked
+                        syncFilteringMode()
                     }
                 }
 
@@ -111,6 +172,7 @@ Item {
 
                     onClicked: {
                         filterModel.onlyNoReference = checked
+                        syncFilteringMode()
                     }
                 }
 
@@ -118,59 +180,27 @@ Item {
                     Layout.fillWidth: true
                 }
 
+                FlatButton {
+                    visible: !filteringActive()
+                    text: "Свернуть всё"
+
+                    onClicked: {
+                        linesModel.setAllScenesExpanded(false)
+                    }
+                }
+
+                FlatButton {
+                    visible: !filteringActive()
+                    text: "Развернуть всё"
+
+                    onClicked: {
+                        linesModel.setAllScenesExpanded(true)
+                    }
+                }
+
                 StyledTextLabel {
                     text: listView.count + " / " + linesModel.rowCount
                 }
-            }
-        }
-
-        //! ---------- Заголовок колонок ----------
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.leftMargin: 8
-            Layout.rightMargin: 8
-            spacing: 8
-
-            StyledTextLabel {
-                Layout.preferredWidth: root.colStatusWidth
-                text: "Статус"
-                font: ui.theme.bodyBoldFont
-                horizontalAlignment: Text.AlignLeft
-            }
-
-            StyledTextLabel {
-                Layout.preferredWidth: root.colSpeakerWidth
-                text: "Спикер"
-                font: ui.theme.bodyBoldFont
-                horizontalAlignment: Text.AlignLeft
-            }
-
-            StyledTextLabel {
-                Layout.fillWidth: true
-                text: "EN"
-                font: ui.theme.bodyBoldFont
-                horizontalAlignment: Text.AlignLeft
-            }
-
-            StyledTextLabel {
-                Layout.fillWidth: true
-                text: "RU"
-                font: ui.theme.bodyBoldFont
-                horizontalAlignment: Text.AlignLeft
-            }
-
-            StyledTextLabel {
-                Layout.preferredWidth: root.colDurWidth
-                text: "Длит., с"
-                font: ui.theme.bodyBoldFont
-                horizontalAlignment: Text.AlignRight
-            }
-
-            StyledTextLabel {
-                Layout.preferredWidth: root.colMismatchWidth
-                text: "Расх., с"
-                font: ui.theme.bodyBoldFont
-                horizontalAlignment: Text.AlignRight
             }
         }
 
@@ -185,37 +215,99 @@ Item {
 
             scrollBarPolicy: ScrollBar.AlwaysOn
 
-            delegate: ListItemBlank {
-                id: lineItem
-
+            delegate: Loader {
                 width: ListView.view ? ListView.view.width : 0
-                height: root.rowHeight
+                height: model.rowType === LinesListModel.SceneHeaderRow ? root.headerRowHeight : root.lineRowHeight
 
-                isSelected: model.guid === root.currentGuid
+                sourceComponent: model.rowType === LinesListModel.SceneHeaderRow
+                                 ? sceneHeaderComponent : lineRowComponent
+            }
 
-                onDoubleClicked: function(mouse) {
-                    //! двойной клик: выделение референс-клипа + позиция
-                    //! воспроизведения + открытие текста в рабочей зоне
-                    root.currentGuid = model.guid
-                    controller.openLine(model.guid)
-                }
+            Component {
+                id: sceneHeaderComponent
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 8
-                    anchors.rightMargin: 8
-                    spacing: 8
+                //! Раскрывающийся заголовок сцены (quest_id из JSON)
+                ListItemBlank {
+                    id: sceneHeader
 
-                    //! Статус: цветной маркер + текст
+                    mouseArea.hoverEnabled: true
+
                     RowLayout {
-                        Layout.preferredWidth: root.colStatusWidth
+                        anchors.fill: parent
+                        anchors.leftMargin: 6
+                        anchors.rightMargin: 10
+                        spacing: 8
 
-                        spacing: 6
+                        //! Стрелка раскрытия
+                        StyledIconLabel {
+                            Layout.preferredWidth: 14
 
+                            iconCode: IconCode.ARROW_RIGHT
+                            rotation: model.expanded ? 90 : 0
+
+                            Behavior on rotation {
+                                NumberAnimation { duration: 120 }
+                            }
+                        }
+
+                        StyledTextLabel {
+                            Layout.fillWidth: true
+
+                            text: model.sectionTitle
+                            font: ui.theme.bodyBoldFont
+                            horizontalAlignment: Text.AlignLeft
+                            elide: Text.ElideRight
+                        }
+
+                        StyledTextLabel {
+                            text: model.sectionLineCount + " реп."
+                            opacity: 0.6
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: 1
+
+                        color: ui.theme.strokeColor
+                    }
+
+                    onClicked: {
+                        linesModel.toggleScene(model.sectionKey)
+                    }
+                }
+            }
+
+            Component {
+                id: lineRowComponent
+
+                //! Строка реплики: статус · спикер · EN над RU · длительность
+                ListItemBlank {
+                    id: lineItem
+
+                    isSelected: model.guid === root.currentGuid
+
+                    onDoubleClicked: function(mouse) {
+                        //! двойной клик: выделение референс-клипа + позиция
+                        //! воспроизведения + открытие текста в рабочей зоне
+                        root.currentGuid = model.guid
+                        controller.openLine(model.guid)
+                    }
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 20
+                        anchors.rightMargin: 10
+                        spacing: 8
+
+                        //! Статус: цветной маркер (текст — в подсказке/рабочей зоне)
                         Rectangle {
-                            Layout.preferredWidth: 8
-                            Layout.preferredHeight: 8
-                            radius: 4
+                            Layout.preferredWidth: 10
+                            Layout.preferredHeight: 10
+                            radius: 5
+                            Layout.alignment: Qt.AlignVCenter
 
                             color: {
                                 switch (model.statusCode) {
@@ -229,49 +321,50 @@ Item {
                         }
 
                         StyledTextLabel {
-                            Layout.fillWidth: true
+                            Layout.preferredWidth: root.colSpeakerWidth
+                            Layout.alignment: Qt.AlignVCenter
 
-                            text: model.statusText
+                            text: model.speaker
                             horizontalAlignment: Text.AlignLeft
+                            elide: Text.ElideRight
+                            opacity: model.speaker === "UNKNOWN" ? 0.6 : 1.0
                         }
-                    }
 
-                    StyledTextLabel {
-                        Layout.preferredWidth: root.colSpeakerWidth
+                        //! EN над RU (друг над другом)
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignVCenter
+                            spacing: 1
 
-                        text: model.speaker
-                        horizontalAlignment: Text.AlignLeft
-                        opacity: model.speaker === "UNKNOWN" ? 0.6 : 1.0
-                    }
+                            StyledTextLabel {
+                                Layout.fillWidth: true
 
-                    StyledTextLabel {
-                        Layout.fillWidth: true
+                                text: model.en
+                                horizontalAlignment: Text.AlignLeft
+                                elide: Text.ElideRight
+                                opacity: 0.65
+                                font: ui.theme.bodyFont
+                            }
 
-                        text: model.en
-                        horizontalAlignment: Text.AlignLeft
-                    }
+                            StyledTextLabel {
+                                Layout.fillWidth: true
 
-                    StyledTextLabel {
-                        Layout.fillWidth: true
+                                text: model.ru
+                                horizontalAlignment: Text.AlignLeft
+                                elide: Text.ElideRight
+                                font: lineItem.isSelected ? ui.theme.bodyBoldFont : ui.theme.bodyFont
+                            }
+                        }
 
-                        text: model.ru
-                        horizontalAlignment: Text.AlignLeft
-                        font: lineItem.isSelected ? ui.theme.bodyBoldFont : ui.theme.bodyFont
-                    }
+                        //! Время дорожки в конце; расхождение — подсветка
+                        StyledTextLabel {
+                            Layout.preferredWidth: root.colDurWidth
+                            Layout.alignment: Qt.AlignVCenter
 
-                    StyledTextLabel {
-                        Layout.preferredWidth: root.colDurWidth
-
-                        text: model.dur.toFixed(2)
-                        horizontalAlignment: Text.AlignRight
-                    }
-
-                    StyledTextLabel {
-                        Layout.preferredWidth: root.colMismatchWidth
-
-                        text: model.hasMismatch ? (model.mismatch > 0 ? "+" : "") + model.mismatch.toFixed(2) : "—"
-                        horizontalAlignment: Text.AlignRight
-                        color: model.hasMismatch ? ui.theme.accentColor : ui.theme.fontSecondaryColor
+                            text: model.dur.toFixed(2) + " с"
+                            horizontalAlignment: Text.AlignRight
+                            color: model.hasMismatch ? ui.theme.accentColor : ui.theme.fontPrimaryColor
+                        }
                     }
                 }
             }

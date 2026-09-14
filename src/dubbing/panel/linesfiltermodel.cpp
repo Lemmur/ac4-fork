@@ -89,6 +89,14 @@ bool LinesFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex& source
         return false;
     }
 
+    //! При активных фильтрах/поиске список превращается в плоские результаты:
+    //! заголовки сцен скрываются (иначе пустые секции загромождают выдачу).
+    const bool filtering = m_onlyUnknown || m_statusFilter >= 0 || m_onlyMismatch
+                           || m_onlyNoReference || !m_searchText.isEmpty();
+    if (filtering && idx.data(LinesListModel::RowTypeRole).toInt() == LinesListModel::SceneHeaderRow) {
+        return false;
+    }
+
     const auto roleValue = [&](LinesListModel::Roles role) {
         return sourceModel()->data(idx, role);
     };
