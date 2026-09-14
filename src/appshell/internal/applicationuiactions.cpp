@@ -128,6 +128,14 @@ const UiActionList ApplicationUiActions::m_actions = {
              TranslatableString("action_description", "Show/hide tracks"),
              Checkable::Yes
              ),
+    //! Панель списка реплик дубляжа (M3, §6.3) — текст на русском (AGENTS.md §5)
+    UiAction("toggle-lines",
+             au::context::UiCtxProjectOpened,
+             au::context::CTX_ANY,
+             TranslatableString("action", "&Реплики"),
+             TranslatableString("action_description", "Показать/скрыть панель реплик дубляжа"),
+             Checkable::Yes
+             ),
     // Status bar
     UiAction("toggle-statusbar",
              au::context::UiCtxProjectOpened,
@@ -334,6 +342,7 @@ const QMap<muse::actions::ActionCode, DockName>& ApplicationUiActions::toggleDoc
 
         { "toggle-tracks", TRACKS_PANEL_NAME },
         { "toggle-history", HISTORY_PANEL_NAME },
+        { "toggle-lines", LINES_PANEL_NAME },
 
         { "toggle-statusbar", PROJECT_STATUSBAR_NAME },
     };

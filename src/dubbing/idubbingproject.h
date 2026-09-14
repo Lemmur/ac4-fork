@@ -73,6 +73,13 @@ public:
     virtual ProjectImportResult importProject(const muse::io::path_t& jsonPath,
                                               const muse::io::path_t& wavFolder) = 0;
 
+    //! Снимок домена текущего проекта (панель реплик M3 перестраивает
+    //! список по этому снимку при domainChanged / смене проекта).
+    virtual DubbingMeta domainSnapshot() const = 0;
+
+    //! Признак «текущий проект — дубляж» (панель реплик непустая только для него).
+    virtual bool isDubbingProject() const = 0;
+
     //! Правка RU-текста реплики (undo — штатный pushHistoryState, как в M1).
     virtual bool setLineRu(const std::string& guid, const std::string& text) = 0;
 

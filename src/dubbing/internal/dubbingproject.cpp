@@ -68,6 +68,11 @@ void DubbingProject::WriteXML(XMLWriter& xmlFile) const
                 xmlFile.WriteAttr(wxT("speaker"), toWx(line.speakerName));
                 xmlFile.WriteAttr(wxT("speaker_internal"), toWx(line.speakerInternal));
                 xmlFile.WriteAttr(wxT("dur"), line.dur, 6);
+                if (line.actualDur >= 0.0) {
+                    //! фактическая длительность WAV (M3: колонка/фильтр расхождений);
+                    //! атрибут опционален при чтении — старые проекты читаются без него
+                    xmlFile.WriteAttr(wxT("actual_dur"), line.actualDur, 6);
+                }
                 xmlFile.WriteAttr(wxT("order"), line.orderIndex);
                 xmlFile.WriteAttr(wxT("status"), static_cast<int>(line.status));
                 xmlFile.WriteAttr(wxT("reftrack"), line.refTrackId);
@@ -163,6 +168,10 @@ bool DubbingProject::HandleXMLTag(const std::string_view& tag, const AttributesL
                 double d = 0.0;
                 v.ToDouble(&d);
                 m_currentLine->dur = d;
+            } else if (name == "actual_dur") {
+                double d = 0.0;
+                v.ToDouble(&d);
+                m_currentLine->actualDur = d;
             } else if (name == "order") {
                 long n = 0;
                 v.ToLong(&n);

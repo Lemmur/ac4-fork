@@ -43,6 +43,7 @@ struct Line {
     std::string speakerName;      //!< пустое имя -> "UNKNOWN" на импорте (§6.2)
     std::string speakerInternal;  //!< Character.Main.Coen и т.п.
     double dur = 0.0;             //!< длительность референса из JSON, секунды
+    double actualDur = -1.0;      //!< фактическая длительность WAV, секунды; -1 = неизвестно (M3)
     int orderIndex = 0;           //!< порядок ключей JSON = порядок реплик (§4.2)
     LineStatus status = LineStatus::New;
 

@@ -30,6 +30,7 @@ import Audacity.AppShell
 import Audacity.ProjectScene
 import Audacity.Playback
 import Audacity.TrackEdit
+import Audacity.Dubbing
 
 DockPage {
     id: root
@@ -439,6 +440,33 @@ DockPage {
             HistoryPanel {
                 navigationSection: historyPanel.navigationSection
                 navigationOrderStart: historyPanel.contentNavigationPanelOrderStart
+            }
+        },
+        DockPanel {
+            id: linesPanel
+
+            //! Панель списка реплик дубляжа (M3, §6.3): регистрация —
+            //! DockPanel в panels (architecture.md §0.2), имя — linesPanelName()
+            objectName: root.pageModel.linesPanelName()
+            title: "Реплики"
+
+            navigationSection: root.navigationPanelSec(linesPanel.location)
+
+            width: 468
+            minimumWidth: 340
+            maximumWidth: 720
+
+            groupName: root.verticalPanelsGroup
+            location: Location.Right
+
+            //! NOTE: hidden by default (для обычных проектов); открывается
+            //! меню «Вид -> Реплики» / действием toggle-lines
+            visible: false
+
+            dropDestinations: root.verticalPanelDropDestinations
+
+            LinesPanel {
+                anchors.fill: parent
             }
         }
     ]

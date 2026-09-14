@@ -34,6 +34,8 @@ public:
     WavImportResult importWavFolder(const muse::io::path_t& folder) override;
     ProjectImportResult importProject(const muse::io::path_t& jsonPath,
                                       const muse::io::path_t& wavFolder) override;
+    DubbingMeta domainSnapshot() const override;
+    bool isDubbingProject() const override;
     bool setLineRu(const std::string& guid, const std::string& text) override;
 
     muse::async::Notification domainChanged() const override { return m_domainChanged; }

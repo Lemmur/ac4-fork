@@ -176,6 +176,21 @@ ProjectImportResult DubbingService::importProject(const muse::io::path_t& jsonPa
     return result;
 }
 
+DubbingMeta DubbingService::domainSnapshot() const
+{
+    AudacityProject* prj = currentAu3Project();
+    if (!prj) {
+        return DubbingMeta{};
+    }
+    return DubbingProject::Get(*prj).meta(); //!< одна копия на domainChanged (панель M3)
+}
+
+bool DubbingService::isDubbingProject() const
+{
+    AudacityProject* prj = currentAu3Project();
+    return prj && DubbingProject::Get(*prj).meta().isDubbing;
+}
+
 bool DubbingService::setLineRu(const std::string& guid, const std::string& text)
 {
     AudacityProject* prj = currentAu3Project();

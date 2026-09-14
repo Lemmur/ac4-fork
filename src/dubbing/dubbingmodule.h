@@ -18,6 +18,9 @@ class DubbingModule : public muse::modularity::IModuleSetup
 public:
     std::string moduleName() const override;
 
+    void registerResources() override;  //!< Q_INIT_RESOURCE(dubbing) — QML панели
+    void registerUiTypes() override;    //!< qmlRegisterType: модель/фильтр/контроллер
+
     muse::modularity::IContextSetup* newContext(const muse::modularity::ContextPtr& ctx) const override;
 };
 

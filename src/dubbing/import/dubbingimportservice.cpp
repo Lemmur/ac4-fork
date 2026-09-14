@@ -74,6 +74,7 @@ WavImportResult DubbingImportService::importWav(AudacityProject& prj, DubbingMet
                     auto clip = findClipById(prj, line.refTrackId, line.refClipId);
                     if (clip) {
                         cursor = std::max(cursor, clip->GetPlayEndTime());
+                        line.actualDur = clip->GetPlayDuration(); //!< M3: колонка/фильтр расхождений
                         result.alreadyImportedCount++;
                         continue;
                     }
@@ -98,6 +99,8 @@ WavImportResult DubbingImportService::importWav(AudacityProject& prj, DubbingMet
                     result.errors.push_back("не удалось прочитать WAV: " + wavIt->second.toString().toStdString());
                     continue;
                 }
+                line.actualDur = info.duration; //!< M3: колонка/фильтр расхождений (в домене, переживает save/load)
+
                 const double diff = info.duration - line.dur;
                 if (std::abs(diff) > DUBBING_DURATION_MISMATCH_THRESHOLD_SECS) {
                     result.mismatches.push_back({ line.guid, line.dur, info.duration, diff });
