@@ -195,6 +195,49 @@ M2.
 импорт, JSON (Qt), прогресс; расширяется лог/статусы домена; с нуля —
 сервис массового импорта, сверка, инкрементальность.
 
+**Уточнения по факту реализации (M2, ветка feature/dubbing-m2-import):**
+
+1. Строительный блок подтверждён дословно: `Au3Importer::importIntoTrack`
+   (действие: `Importer::Get().Import` -> paste в целевую дорожку; историю
+   НЕ пушит — один пуш на пакет делает вызывающий, прецедент —
+   `Audacity4Project::importIntoTracks`, audacityproject.cpp:102-104).
+   ClipKey блок НЕ возвращает (только bool) — клип ищется через
+   `DomAccessor::findWaveClip(prj, trackId, time)` (domaccessor.h:31).
+2. Дорожка «REF <file_id>» создаётся не `ITrackeditInteraction::newMonoTrack`
+   (тот пушит историю на каждую дорожку через TrackeditOperationController),
+   а внутренним `ITracksInteraction::addWaveTrack(1)` + `changeTrackTitle`
+   (без пуша истории; тот же путь, что в importLegacyAup, au3importer.cpp:208).
+   ITracksInteraction — контекстный IOC-экспорт trackedit (trackeditmodule.cpp:153).
+3. Клипы позиционируются по ФАКТИЧЕСКОЙ длительности импортированного
+   аудио, а не по dur из JSON: при расхождении > 0.1 с слоты по dur дали бы
+   наложения клипов на дорожке. dur из JSON используется только для
+   предупреждения о расхождении (сверка до импорта через
+   `IImporter::fileInfo`, тот же libsndfile).
+4. ДОМЕН M1 ИЗМЕНЁН: «0 = отсутствует» для id дорожек/клипов неверен —
+   au3 `TrackList::sCounter = -1` (Track.cpp:316), первый трек получает
+   id 0. Введены `NO_TRACK_ID = -1` / `NO_CLIP_ID = -1` (dubbingtypes.h),
+   refTrackId/refClipId/masterTrackId/masterClipId по умолчанию -1.
+5. Порядок ключей JSON: QJsonObject хранит ключи ОТСОРТИРОВАННЫМИ, поэтому
+   `DubbingJsonReader` читает значения через QJsonDocument, а порядок
+   (orderIndex) снимает отдельным структурным сканером исходного текста
+   (скобочный баланс с пропуском строк, import/dubbingjsonreader.cpp).
+6. Undo: JSON-пакет и WAV-пакет пушат РАЗНЫЕ описания
+   («Импорт метаданных дубляжа» / «Импорт дубляжа»), поэтому
+   UndoPush::CONSOLIDATE их не сливает (сливает только одинаковые
+   описания подряд, UndoManager.cpp:241-244); повторные однотипные
+   пакеты консолидируются — стандартное поведение для частых действий.
+7. Тестовое окружение dubbing_tests: RegisterImportPlugins() в setPreInit
+   (Importer::Initialize снимает снапшот реестра через std::call_once),
+   headless-BasicUI (PCM-импорт репортит прогресс; Au3BasicUI строит
+   диалог с activeContext()==null — падение IOC-разрешения в консоли),
+   собственный IOC-контекст теста (ioc(globalCtx()) == nullptr при id==0,
+   kors ioc.cpp:46-49), stateful-мок выделения дорожек
+   (importIntoTrackInternal выбирает целевую дорожку через
+   setSelectedTracks/selectedTracks).
+8. Перенесено в M3: диалог импорта QML с прогрессом/логом, вынос паттерна
+   «{guid}.wav» и порога расхождения в настройки, Q_INVOKABLE-обёртки
+   QML-сервиса, фоновый поток.
+
 ## M3. Панель списка реплик (§6.3)
 
 **Muse-модуль:** расширение `src/dubbing` (каталог `panel/`).

@@ -212,3 +212,72 @@ Smoke-тест как в CI: `dist\bin\Audacity4.exe --plugin-registration-self-
 → exit 0. Команда внесена в roadmap.md §M0.
 
 **Открытые вопросы:** нет новых; ждём ревью M1 и разрешения на M2.
+
+---
+
+## Сессия 2026-09-14 (четвёртая) — M2: импорт JSON + массовый импорт WAV
+
+**Сделано (ветка feature/dubbing-m2-import от feature/dubbing-m1-core):**
+- `src/dubbing/dubbingconfiguration.h` — паттерн «{guid}.wav» (QRegularExpression,
+  группа 1 = guid) и порог расхождения длительности 0.1 c константами
+  (вынос в настройки — M3).
+- `src/dubbing/idubbingproject.h` — IOC-интерфейс (importFromJson /
+  importWavFolder / setLineRu / domainChanged) + структуры результатов
+  (счётчики, warnings-расхождения, ошибки).
+- `src/dubbing/import/dubbingjsonreader.*` — QJsonDocument для значений +
+  структурный сканер порядка ключей (QJsonObject сортирует ключи!);
+  пустой speaker_name -> UNKNOWN; dur обязателен; дубликаты guid — ошибка.
+- `src/dubbing/import/dubbingimportservice.*` — рекурсивный скан
+  (QDirIterator), сопоставление по guid (upper-case), сверка dur через
+  IImporter::fileInfo ДО импорта, ленивое создание дорожки «REF <file_id>»
+  (ITracksInteraction::addWaveTrack(1) + changeTrackTitle), импорт блоком
+  IImporter::importIntoTrack, ClipKey через DomAccessor::findWaveClip,
+  курсор по ФАКТИЧЕСКОМУ концу клипа; историю НЕ пушит (пушит DubbingService).
+- `src/dubbing/internal/dubbingservice.*` — реализация IDubbingProject:
+  инкрементальное слияние JSON (существующие реплики не трогаются),
+  ОДИН pushHistoryState(CONSOLIDATE) на пакет («Импорт метаданных
+  дубляжа» / «Импорт дубляжа»), setLineRu — отдельный пуш.
+- `dubbingmodule.*` — DubbingContext::registerExports (паттерн
+  ImporterModule/ImporterContext: IDubbingProject — контекстный экспорт).
+- ДОМЕН M1 ИЗМЕНЁН: NO_TRACK_ID/NO_CLIP_ID = -1 (0 — валидный id:
+  TrackList::sCounter = -1); dubbingtypes.h, сериализация не изменилась
+  (id пишутся всегда).
+- Тесты `dubbingimport_tests.cpp` (6 кейсов) + data/sample.json (копия
+  docs/requirements) + data/mini_unknown.json (кейс UNKNOWN):
+  порядок ключей (первый guid 6046…, алфавитно первым был бы 039D…),
+  2 файла / 3 сцены / 47 реплик; NoReference (44 без WAV); расхождение
+  dur (2.2 против 1.732); инкрементальность (правка ru сохранена, клипы
+  не дублируются, новый WAV добавляется без наложений); undo (InitialState
+  + 2 пуша; отмена возвращает мета без файлов + нет REF-дорожек);
+  setLineRu undo/redo.
+- Результаты: dubbing_tests 9/9 (3 M1 + 6 M2); ПОЛНЫЙ ctest — 29/29 (100%),
+  audacity.exe собран. Пуш ветки не делался (по заданию — после ревью).
+
+**Грабли, собранные по ходу (важно для следующих модулей):**
+1. Importer::Initialize() снимает снапшот реестра импорт-плагинов через
+   std::call_once — RegisterImportPlugins() в тестовом окружении нужно
+   звать ДО onAllInited (setPreInit), иначе список пуст навсегда.
+2. PCM-импорт репортит прогресс -> BasicUI::MakeProgress -> Au3BasicUI с
+   activeContext()==null в консоли -> ProgressDialog с нулевым контекстом
+   -> ContextInject по нулевому ctx роняет IOC-разрешение (SEH). Лечение:
+   headless-BasicUI (без IOC) в setPostInit поверх Au3BasicUI.
+3. kors ioc(globalCtx()) при IOC_CHECK возвращает nullptr (globalId == 0,
+   assert id>0) — контекстные зависимости в тестах регистрируются в
+   собственном контексте с id>0; Inject-поля внутренних классов trackedit/
+   importer приватны (friend только штатным тестам) — .set() недоступен.
+4. SelectionControllerMock без состояния ломает importIntoTrackInternal:
+   setSelectedTracks(no-op) -> selectedTracks() пуст -> paste уходит в
+   pasteIntoNewTracks. Мок должен хранить выделение.
+5. muse::io::path_t::toString() возвращает QString (нужен .toStdString()).
+6. MSVC: локальные классы в функциях + unique_ptr-конверсии — выносить
+   в область имён; в dubbingjsonreader.cpp var «file» затеняет QFile file
+   (warning C4456 — безвредно, но лучше переименовать при случае).
+7. ITracksInteraction::addWaveTrack возвращает TrackId БЕЗ пуша истории —
+   правильный путь для пакетного создания дорожек; newMonoTrack (из
+   ITrackeditInteraction) пушит историю на каждую дорожку.
+8. UndoRedoExtensionRegistry-сейвер снимает мету в ОДИН пуш вместе с
+   дорожками — undo пакета возвращает и аудио, и метаданные атомарно
+   (подтверждено тестом d).
+
+**Открытые вопросы:** нет. Перенесено в M3: диалог импорта QML (прогресс/
+лог), настройки паттерна/порога, Q_INVOKABLE-QML-обёртки, фоновый поток.
