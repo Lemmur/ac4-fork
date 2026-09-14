@@ -258,14 +258,19 @@ void DubbingProject::reconcileReferences(AudacityProject& project)
             }
         }
 
+        //! Нет REF-дорожки (переименована/удалена/тестовый домен без
+        //! дорожек) — файл не трогаем: это не «загрузка с новыми id»,
+        //! а осознанное состояние проекта.
+        if (!refTrack) {
+            continue;
+        }
+
         //! Клипы дорожки в порядке времени (порядок реплик с референсом)
         std::vector<std::shared_ptr<Au3WaveClip> > clips;
-        if (refTrack) {
-            auto clipList = au::au3::DomAccessor::waveClipsAsList(refTrack);
-            clips.assign(clipList.begin(), clipList.end());
-            std::sort(clips.begin(), clips.end(),
-                      [](const auto& a, const auto& b) { return a->GetPlayStartTime() < b->GetPlayStartTime(); });
-        }
+        auto clipList = au::au3::DomAccessor::waveClipsAsList(refTrack);
+        clips.assign(clipList.begin(), clipList.end());
+        std::sort(clips.begin(), clips.end(),
+                  [](const auto& a, const auto& b) { return a->GetPlayStartTime() < b->GetPlayStartTime(); });
 
         size_t clipIdx = 0;
         for (Scene& scene : file.scenes) {
@@ -284,6 +289,33 @@ void DubbingProject::reconcileReferences(AudacityProject& project)
             }
         }
     }
+}
+
+bool DubbingProject::referencesNeedReconcile(const AudacityProject& project)
+{
+    const DubbingMeta& meta = DubbingProject::Get(project).meta();
+    const auto& trackList = Au3TrackList::Get(project);
+
+    for (const GameFile& file : meta.files) {
+        for (const Scene& scene : file.scenes) {
+            for (const Line& line : scene.lines) {
+                if (line.refClipId == NO_CLIP_ID) {
+                    continue;
+                }
+                bool found = false;
+                for (const auto& track : trackList) {
+                    if (track && TrackId(track->GetId()) == line.refTrackId) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    return true; //!< ссылка в никуда — нужен reconcile
+                }
+            }
+        }
+    }
+    return false;
 }
 
 // ============================================================

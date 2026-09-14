@@ -205,6 +205,15 @@ DubbingMeta DubbingService::domainSnapshot() const
     if (!prj) {
         return DubbingMeta{};
     }
+
+    //! Ленивый reconcile: панель/первый снапшот создаются ПОСЛЕ открытия
+    //! проекта (подписка на currentProjectChanged опаздывает) — проверяем
+    //! ссылки и восстанавливаем их здесь; идемпотентно (после успешного
+    //! reconcile проверки дёшевы и ничего не меняют).
+    if (DubbingProject::referencesNeedReconcile(*prj)) {
+        DubbingProject::reconcileReferences(*prj);
+    }
+
     return DubbingProject::Get(*prj).meta(); //!< одна копия на domainChanged (панель M3)
 }
 

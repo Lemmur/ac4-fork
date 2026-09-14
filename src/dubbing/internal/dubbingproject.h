@@ -37,6 +37,10 @@ public:
     //! (= порядок реплик с референсом в домене, см. DubbingImportService).
     static void reconcileReferences(AudacityProject& project);
 
+    //! Быстрая проверка: ссылки домена указывают на существующие дорожки?
+    //! false -> нужен reconcile (после загрузки .aup4 id перегенерированы).
+    static bool referencesNeedReconcile(const AudacityProject& project);
+
     //! Сериализация в <dubbing>…</dubbing> внутри <project>
     void WriteXML(XMLWriter& xmlFile) const;
 
