@@ -85,6 +85,7 @@ Item {
                     currentIndex: items.length > 0 ? 0 : -1
 
                     onActivated: function(index, value) {
+                        fileSelect.currentIndex = index //!< StyledDropdown не запоминает выбор сам
                         if (value !== undefined && value !== null) {
                             linesModel.fileId = value
                         }
@@ -142,6 +143,7 @@ Item {
                     currentIndex: 0
 
                     onActivated: function(index, value) {
+                        statusDropdown.currentIndex = index //!< StyledDropdown не запоминает выбор сам
                         filterModel.statusFilter = value
                         syncFilteringMode()
                     }
