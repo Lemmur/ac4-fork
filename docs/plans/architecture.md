@@ -157,9 +157,13 @@ textHistory[]}`. `ClipKey` — дословно из
 
 **Импорт JSON** (`src/dubbing/import/`): `dubbingjsonreader.h/.cpp` на
 `QJsonDocument` (UTF-8; структура `{file_id: {quest_id: {guid: {en, ru,
-speaker_name, speaker_internal, dur}}}}` подтверждена
+speaker_name, speaker_internal, dur}}}}` — **легаси-формат M1**
+(агрегат «вся игра в одном файле», зафиксирован
 [`docs/requirements/sample.json`](../../docs/requirements/sample.json);
-принимаются и один большой файл, и по одному на file_id). Пустой
+цели на момент M1: «один большой файл или по одному на file_id»).
+**Целевой формат — §16.2** (реальные quest-файлы студии, два уровня).
+Решение владельца (2026-09-14): миграция парсера в M2.5 с автодетектом
+2/3 уровней вложенности — легаси-агрегат остаётся читаемым). Пустой
 `speaker_name` → `«UNKNOWN»`.
 
 **РЕАЛЬНЫЙ формат исходников студии (зафиксировано 2026-09-14, раздел 16).**
