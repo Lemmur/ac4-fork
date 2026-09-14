@@ -121,15 +121,14 @@ Item {
                 }
             }
 
-            //! Фильтры: Flow — автоматический перенос на новую строку в узкой
-            //! панели (RowLayout не переносится и обрезался справа)
-            Flow {
+            //! Ряд 1: селект статуса + компактные кнопки секций
+            RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
 
                 StyledDropdown {
                     id: statusDropdown
-                    width: 136
+                    Layout.preferredWidth: 136
 
                     //! value: -1 = все статусы (dubbingtypes.h LineStatus)
                     model: [
@@ -147,6 +146,36 @@ Item {
                         syncFilteringMode()
                     }
                 }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                FlatButton {
+                    visible: !filteringActive()
+                    height: 24
+                    text: "Свернуть"
+
+                    onClicked: {
+                        linesModel.setAllScenesExpanded(false)
+                    }
+                }
+
+                FlatButton {
+                    visible: !filteringActive()
+                    height: 24
+                    text: "Развернуть"
+
+                    onClicked: {
+                        linesModel.setAllScenesExpanded(true)
+                    }
+                }
+            }
+
+            //! Ряд 2: чекбоксы фильтров (Flow — автоперенос в узкой панели)
+            Flow {
+                Layout.fillWidth: true
+                spacing: 8
 
                 CheckBox {
                     id: unknownBox
@@ -180,28 +209,6 @@ Item {
                         filterModel.onlyNoReference = noRefBox.checked
                         syncFilteringMode()
                     }
-                }
-
-                FlatButton {
-                    visible: !filteringActive()
-                    text: "Свернуть"
-
-                    onClicked: {
-                        linesModel.setAllScenesExpanded(false)
-                    }
-                }
-
-                FlatButton {
-                    visible: !filteringActive()
-                    text: "Развернуть"
-
-                    onClicked: {
-                        linesModel.setAllScenesExpanded(true)
-                    }
-                }
-
-                StyledTextLabel {
-                    text: listView.count + " / " + linesModel.count
                 }
             }
         }
