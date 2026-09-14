@@ -26,6 +26,14 @@ Item {
 
     property string currentGuid: "" //!< реплика, открытая в рабочей зоне
 
+    onCurrentGuidChanged: {
+        //! Вариант А (решение владельца): при открытии рабочей зоны —
+        //! автофокус в поле RU (правка сразу под руками)
+        if (currentGuid !== "") {
+            Qt.callLater(ruEdit.ensureActiveFocus)
+        }
+    }
+
     readonly property int lineRowHeight: 46
     readonly property int headerRowHeight: 28
     readonly property int colSpeakerWidth: 80
@@ -414,6 +422,23 @@ Item {
                     StyledTextLabel {
                         font: ui.theme.bodyBoldFont
                         text: (workZone.info.speaker || "") + " · " + (workZone.info.statusText || "")
+                    }
+
+                    //! Позиция референса на дорожке (-1 = референса нет)
+                    StyledTextLabel {
+                        visible: workZone.info.refStart !== undefined
+                                 && workZone.info.refStart >= 0
+                        opacity: 0.7
+
+                        text: "Референс: " + workZone.info.refStart.toFixed(2) + " с"
+                    }
+
+                    StyledTextLabel {
+                        visible: workZone.info.refStart !== undefined
+                                 && workZone.info.refStart < 0
+                        opacity: 0.5
+
+                        text: "Нет референса"
                     }
 
                     Item {

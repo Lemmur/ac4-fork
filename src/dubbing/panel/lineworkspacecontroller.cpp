@@ -57,6 +57,7 @@ QVariantMap LineworkspaceController::lineInfo(const QString& guid) const
             info["guid"] = guid;
             info["en"] = QString::fromStdString(line->en);
             info["ru"] = QString::fromStdString(line->ru);
+            info["refStart"] = referenceStartTime(guid); //!< -1 = референса нет
             info["speaker"] = QString::fromStdString(line->speakerName);
             info["statusText"] = LinesListModel::statusText(line->status);
             info["dur"] = line->actualDur >= 0.0 ? line->actualDur : line->dur;

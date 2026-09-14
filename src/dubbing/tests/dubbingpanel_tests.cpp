@@ -817,11 +817,13 @@ TEST_F(DubbingPanelTests, OpenLine_SelectsClipAndSeeks)
     EXPECT_CALL(*m_selectionController, setSelectedClips(testing::_, testing::_)).Times(0);
     EXPECT_FALSE(controller->openLine(QString::fromUtf8(GUID_NO_WAV)));
 
-    //! lineInfo рабочей зоны
+    //! lineInfo рабочей зоны (вариант А: позиция референса для метки)
     const QVariantMap info = controller->lineInfo(QString::fromUtf8(GUID_FIRST));
     EXPECT_EQ(info["speaker"].toString().toStdString(), "Lunka");
     EXPECT_TRUE(info["hasReference"].toBool());
     EXPECT_EQ(info["en"].toString().toStdString(), "Oh! Coen, look!");
+    EXPECT_NEAR(info["refStart"].toDouble(), 0.0, 1e-6); //!< первый клип дорожки
+    EXPECT_NEAR(controller->lineInfo(QString::fromUtf8(GUID_NO_WAV))["refStart"].toDouble(), -1.0, 1e-6);
 }
 
 //! Правка RU-текста из панели: только pushHistoryState («Правка текста
