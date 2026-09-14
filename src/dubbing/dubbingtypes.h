@@ -21,10 +21,17 @@ enum class LineStatus : int {
     Exported = 4,     //!< экспортирован в WAV (6.8)
 };
 
+//! Признак «ссылка отсутствует» для идентификаторов дорожек/клипов.
+//! ВАЖНО: 0 — ВАЛИДНЫЙ id (au3 TrackList::sCounter стартует с -1, первый трек
+//! получает id 0; клипы аналогично), поэтому «нет» = -1, как INVALID_TRACK /
+//! INVALID_TRACK_ITEM в trackedit/trackedittypes.h.
+constexpr int64_t NO_TRACK_ID = -1;
+constexpr int64_t NO_CLIP_ID = -1;
+
 //! Тейк: ссылка на записанный клип (TrackId, ClipId — trackedittypes.h)
 struct TakeInfo {
-    int64_t trackId = 0;
-    int64_t clipId = 0;
+    int64_t trackId = NO_TRACK_ID;
+    int64_t clipId = NO_CLIP_ID;
     bool markedBest = false; //!< ручная маркировка «лучший» (6.5)
 };
 
@@ -39,12 +46,12 @@ struct Line {
     int orderIndex = 0;           //!< порядок ключей JSON = порядок реплик (§4.2)
     LineStatus status = LineStatus::New;
 
-    //! Ссылки на аудио (0 = отсутствует)
-    int64_t refTrackId = 0;
-    int64_t refClipId = 0;
+    //! Ссылки на аудио (NO_*_ID = отсутствует, см. выше)
+    int64_t refTrackId = NO_TRACK_ID;
+    int64_t refClipId = NO_CLIP_ID;
     std::vector<TakeInfo> takes;
-    int64_t masterTrackId = 0;
-    int64_t masterClipId = 0;
+    int64_t masterTrackId = NO_TRACK_ID;
+    int64_t masterClipId = NO_CLIP_ID;
 };
 
 //! Сцена (quest_id)
