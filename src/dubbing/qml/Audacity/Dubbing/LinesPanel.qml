@@ -215,156 +215,148 @@ Item {
 
             scrollBarPolicy: ScrollBar.AlwaysOn
 
-            delegate: Loader {
+            //! ЕДИНЫЙ делегат (без Loader/Component: их creation-контекст
+            //! вне делегата не содержит ролей — model.* оказался бы undefined)
+            delegate: ListItemBlank {
+                id: rowItem
+
+                readonly property bool isHeader: model.rowType === LinesListModel.SceneHeaderRow
+
                 width: ListView.view ? ListView.view.width : 0
-                height: model.rowType === LinesListModel.SceneHeaderRow ? root.headerRowHeight : root.lineRowHeight
+                height: isHeader ? root.headerRowHeight : root.lineRowHeight
 
-                sourceComponent: model.rowType === LinesListModel.SceneHeaderRow
-                                 ? sceneHeaderComponent : lineRowComponent
-            }
+                isSelected: !isHeader && model.guid === root.currentGuid
 
-            Component {
-                id: sceneHeaderComponent
+                //! ----- Заголовок сцены (quest_id из JSON) -----
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 6
+                    anchors.rightMargin: 10
+                    spacing: 8
+                    visible: rowItem.isHeader
 
-                //! Раскрывающийся заголовок сцены (quest_id из JSON)
-                ListItemBlank {
-                    id: sceneHeader
+                    //! Стрелка раскрытия
+                    StyledIconLabel {
+                        Layout.preferredWidth: 14
 
-                    mouseArea.hoverEnabled: true
+                        iconCode: IconCode.ARROW_RIGHT
+                        rotation: model.expanded ? 90 : 0
 
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 6
-                        anchors.rightMargin: 10
-                        spacing: 8
+                        Behavior on rotation {
+                            NumberAnimation { duration: 120 }
+                        }
+                    }
 
-                        //! Стрелка раскрытия
-                        StyledIconLabel {
-                            Layout.preferredWidth: 14
+                    StyledTextLabel {
+                        Layout.fillWidth: true
 
-                            iconCode: IconCode.ARROW_RIGHT
-                            rotation: model.expanded ? 90 : 0
+                        text: model.sectionTitle
+                        font: ui.theme.bodyBoldFont
+                        horizontalAlignment: Text.AlignLeft
+                        elide: Text.ElideRight
+                    }
 
-                            Behavior on rotation {
-                                NumberAnimation { duration: 120 }
+                    StyledTextLabel {
+                        text: model.sectionLineCount + " реп."
+                        opacity: 0.6
+                    }
+                }
+
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: 1
+                    visible: rowItem.isHeader
+
+                    color: ui.theme.strokeColor
+                }
+
+                //! ----- Строка реплики: статус · спикер · EN над RU · длительность -----
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 20
+                    anchors.rightMargin: 10
+                    spacing: 8
+                    visible: !rowItem.isHeader
+
+                    //! Статус: цветной маркер (текст — в рабочей зоне)
+                    Rectangle {
+                        Layout.preferredWidth: 10
+                        Layout.preferredHeight: 10
+                        radius: 5
+                        Layout.alignment: Qt.AlignVCenter
+
+                        color: {
+                            switch (model.statusCode) {
+                            case 1: return ui.theme.strokeColor      // нет референса
+                            case 2: return ui.theme.linkColor         // в работе
+                            case 3: return ui.theme.accentColor       // готова
+                            case 4: return ui.theme.accentColor       // экспортирована
+                            default: return ui.theme.buttonColor      // новая
                             }
+                        }
+                    }
+
+                    StyledTextLabel {
+                        Layout.preferredWidth: root.colSpeakerWidth
+                        Layout.alignment: Qt.AlignVCenter
+
+                        text: model.speaker
+                        horizontalAlignment: Text.AlignLeft
+                        elide: Text.ElideRight
+                        opacity: model.speaker === "UNKNOWN" ? 0.6 : 1.0
+                    }
+
+                    //! EN над RU (друг над другом)
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        spacing: 1
+
+                        StyledTextLabel {
+                            Layout.fillWidth: true
+
+                            text: model.en
+                            horizontalAlignment: Text.AlignLeft
+                            elide: Text.ElideRight
+                            opacity: 0.65
+                            font: ui.theme.bodyFont
                         }
 
                         StyledTextLabel {
                             Layout.fillWidth: true
 
-                            text: model.sectionTitle
-                            font: ui.theme.bodyBoldFont
+                            text: model.ru
                             horizontalAlignment: Text.AlignLeft
                             elide: Text.ElideRight
-                        }
-
-                        StyledTextLabel {
-                            text: model.sectionLineCount + " реп."
-                            opacity: 0.6
+                            font: rowItem.isSelected ? ui.theme.bodyBoldFont : ui.theme.bodyFont
                         }
                     }
 
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-                        height: 1
+                    //! Время дорожки в конце; расхождение — подсветка
+                    StyledTextLabel {
+                        Layout.preferredWidth: root.colDurWidth
+                        Layout.alignment: Qt.AlignVCenter
 
-                        color: ui.theme.strokeColor
+                        text: model.dur.toFixed(2) + " с"
+                        horizontalAlignment: Text.AlignRight
+                        color: model.hasMismatch ? ui.theme.accentColor : ui.theme.fontPrimaryColor
                     }
+                }
 
-                    onClicked: {
+                onClicked: function(mouse) {
+                    if (rowItem.isHeader) {
                         linesModel.toggleScene(model.sectionKey)
                     }
                 }
-            }
 
-            Component {
-                id: lineRowComponent
-
-                //! Строка реплики: статус · спикер · EN над RU · длительность
-                ListItemBlank {
-                    id: lineItem
-
-                    isSelected: model.guid === root.currentGuid
-
-                    onDoubleClicked: function(mouse) {
+                onDoubleClicked: function(mouse) {
+                    if (!rowItem.isHeader) {
                         //! двойной клик: выделение референс-клипа + позиция
                         //! воспроизведения + открытие текста в рабочей зоне
                         root.currentGuid = model.guid
                         controller.openLine(model.guid)
-                    }
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 20
-                        anchors.rightMargin: 10
-                        spacing: 8
-
-                        //! Статус: цветной маркер (текст — в подсказке/рабочей зоне)
-                        Rectangle {
-                            Layout.preferredWidth: 10
-                            Layout.preferredHeight: 10
-                            radius: 5
-                            Layout.alignment: Qt.AlignVCenter
-
-                            color: {
-                                switch (model.statusCode) {
-                                case 1: return ui.theme.strokeColor      // нет референса
-                                case 2: return ui.theme.linkColor         // в работе
-                                case 3: return ui.theme.accentColor       // готова
-                                case 4: return ui.theme.accentColor       // экспортирована
-                                default: return ui.theme.buttonColor      // новая
-                                }
-                            }
-                        }
-
-                        StyledTextLabel {
-                            Layout.preferredWidth: root.colSpeakerWidth
-                            Layout.alignment: Qt.AlignVCenter
-
-                            text: model.speaker
-                            horizontalAlignment: Text.AlignLeft
-                            elide: Text.ElideRight
-                            opacity: model.speaker === "UNKNOWN" ? 0.6 : 1.0
-                        }
-
-                        //! EN над RU (друг над другом)
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Layout.alignment: Qt.AlignVCenter
-                            spacing: 1
-
-                            StyledTextLabel {
-                                Layout.fillWidth: true
-
-                                text: model.en
-                                horizontalAlignment: Text.AlignLeft
-                                elide: Text.ElideRight
-                                opacity: 0.65
-                                font: ui.theme.bodyFont
-                            }
-
-                            StyledTextLabel {
-                                Layout.fillWidth: true
-
-                                text: model.ru
-                                horizontalAlignment: Text.AlignLeft
-                                elide: Text.ElideRight
-                                font: lineItem.isSelected ? ui.theme.bodyBoldFont : ui.theme.bodyFont
-                            }
-                        }
-
-                        //! Время дорожки в конце; расхождение — подсветка
-                        StyledTextLabel {
-                            Layout.preferredWidth: root.colDurWidth
-                            Layout.alignment: Qt.AlignVCenter
-
-                            text: model.dur.toFixed(2) + " с"
-                            horizontalAlignment: Text.AlignRight
-                            color: model.hasMismatch ? ui.theme.accentColor : ui.theme.fontPrimaryColor
-                        }
                     }
                 }
             }
