@@ -1,0 +1,341 @@
+{
+    "q000_intro": {
+        "cs_q000_1_opening": {
+            "6046256F4DF7E505F0906FBE58C09951": {
+                "en": "Oh! Coen, look!",
+                "ru": "О! Коэн, смотри!",
+                "speaker_name": "Lunka",
+                "speaker_internal": "Character.Secondary.Lunka",
+                "dur": 1.861
+            },
+            "1C89F59B48693450902DBC8F43F87202": {
+                "en": "Isn’t it pretty?",
+                "ru": "Красиво, правда?",
+                "speaker_name": "Lunka",
+                "speaker_internal": "Character.Secondary.Lunka",
+                "dur": 1.075
+            },
+            "2A0F59574157D9EAD561A992313C42EE": {
+                "en": "Just as pretty as you, sweet pea.",
+                "ru": "Такое же красивое, как ты, золотце.",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 1.732
+            },
+            "41E304C446621137356856820F7BD252": {
+                "en": "Tell you what – find a few more, and I’ll weave you a wreath.",
+                "ru": "Знаешь что — найди ещё несколько, и я сплету тебе венок.",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 3.51
+            },
+            "4CD5D3A744E1DEA9B925DFA42BC98007": {
+                "en": "Promise?",
+                "ru": "Обещаешь?",
+                "speaker_name": "Lunka",
+                "speaker_internal": "Character.Secondary.Lunka",
+                "dur": 0.747
+            },
+            "2DE6914F495AB3B20A55BCA91A744C15": {
+                "en": "Promise.",
+                "ru": "Обещаю.",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 0.527
+            },
+            "5E0D2E4C47A615AEB4B2EB8A1FDB4543": {
+                "en": "Hey, busy bees! Time for a break!",
+                "ru": "Эй, трудяги! Пора передохнуть!",
+                "speaker_name": "Esme",
+                "speaker_internal": "Character.Secondary.Esme",
+                "dur": 3.99
+            },
+            "7CBC99AF48752ACE23FD1AA0D6F6C8F9": {
+                "en": "Mama!",
+                "ru": "Мама!",
+                "speaker_name": "Mirto",
+                "speaker_internal": "Character.Secondary.Mirto",
+                "dur": 1.013
+            },
+            "828F300D4FC6DF9281644C8B055EC190": {
+                "en": "Ah! Was starting to think you'd forgotten about us.",
+                "ru": "А! Я уже начал думать, что ты о нас забыла.",
+                "speaker_name": "Pieter",
+                "speaker_internal": "Character.Main.Pieter",
+                "dur": 4.931
+            },
+            "86B7CCB84C8F0E6A2672C186B0949302": {
+                "en": "Up at first light, cooking for you all, and this is the thanks I get?",
+                "ru": "Я встала на рассвете, готовлю для вас, и вот ваша благодарность?",
+                "speaker_name": "Esme",
+                "speaker_internal": "Character.Secondary.Esme",
+                "dur": 5.083
+            },
+            "7F9ED1F548409EAFECC72496C1E2B236": {
+                "en": "How about this?",
+                "ru": "А как тебе это?",
+                "speaker_name": "Pieter",
+                "speaker_internal": "Character.Main.Pieter",
+                "dur": 2.978
+            },
+            "F1E470EE4F34861148DE30AD14AD50BD": {
+                "en": "Coen! Come get the bread while it's still warm!",
+                "ru": "Коэн! Иди за хлебом, пока он ещё тёплый!",
+                "speaker_name": "Esme",
+                "speaker_internal": "Character.Secondary.Esme",
+                "dur": 3.882
+            },
+            "1A13A77B4B13E6551552DEBEC3DDC4FF": {
+                "en": "Coming!",
+                "ru": "Иду!",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 0.502
+            },
+            "039DAE9E4FB81DE1BC5D30B0FAF3A728": {
+                "en": "Don't know about you, sweet pea, but I'm...",
+                "ru": "Не знаю, как ты, золотце, а я...",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 3.829
+            },
+            "D9AC8DC74E6562C384CB4D8CCFAF8951": {
+                "en": "Lunka?",
+                "ru": "Лунка?",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 0.903
+            },
+            "EF7A95FD4A735A8BC642279E7B640199": {
+                "en": "Hey! Come back!",
+                "ru": "Эй! Вернись!",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 1.09
+            },
+            "BA880F9F40F8D1FF8CA5D6861A6D792F": {
+                "en": "Lunka!",
+                "ru": "Лунка!",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 0.673
+            },
+            "9E6AD6FD480D079BD079DAA8FF6EB935": {
+                "en": "No! Don't go over there!",
+                "ru": "Нет! Не ходи туда!",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 1.102
+            },
+            "2C74B08847AD00DA991DD4A13A2FC563": {
+                "en": "Lunka?",
+                "ru": "Лунка?",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 1.094
+            },
+            "37114E0143E1069409045BA87AF8D2E1": {
+                "en": "Lunka!",
+                "ru": "Лунка!",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 0.678
+            }
+        },
+        "q000_01_calling_lunka_gpl": {
+            "C873D5AD4817A396A05D3DABE7841E67": {
+                "en": "Lunka, come back!",
+                "ru": "Лунка, вернись!",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 1.599
+            },
+            "ADC4B4444BD97FB1F9831995FAAE31A9": {
+                "en": "Hahahaha!",
+                "ru": "Ха-ха-ха-ха!",
+                "speaker_name": "Lunka",
+                "speaker_internal": "Character.Secondary.Lunka",
+                "dur": 1.591
+            },
+            "957BA9DA4CB832210E9CD99BB2AC1611": {
+                "en": "Hihihi!",
+                "ru": "Хи-хи-хи!",
+                "speaker_name": "Lunka",
+                "speaker_internal": "Character.Secondary.Lunka",
+                "dur": 1.41
+            },
+            "1B6B11544CB38B6518E35CB63A4997DE": {
+                "en": "We need to run!",
+                "ru": "Нам надо бежать!",
+                "speaker_name": "Lunka",
+                "speaker_internal": "Character.Secondary.Lunka",
+                "dur": 1.193
+            },
+            "4A03D06B4F3B9B67238A7C8E1D016E91": {
+                "en": "Quick! Or they'll get us!",
+                "ru": "Быстрее! Иначе они нас схватят!",
+                "speaker_name": "Lunka",
+                "speaker_internal": "Character.Secondary.Lunka",
+                "dur": 1.72
+            },
+            "F4E63C354F90D5BA777FA488D9474039": {
+                "en": "Coen! Here!",
+                "ru": "Коэн! Сюда!",
+                "speaker_name": "Lunka",
+                "speaker_internal": "Character.Secondary.Lunka",
+                "dur": 1.601
+            },
+            "7E13C516407A5A1E7FBEF5B05D3BBCF1": {
+                "en": "Ring-a-ring o' roses, a pocket full of posies...",
+                "ru": "Встанем в круг у роз, в карманах лепестки...",
+                "speaker_name": "Lunka",
+                "speaker_internal": "Character.Secondary.Lunka",
+                "dur": 7.302
+            },
+            "6C3F00FC4625D96CBEC2B3BC7680FC09": {
+                "en": "Ashes! Ashes! We all fall down!",
+                "ru": "Пепел! Пепел! Все мы упадём!",
+                "speaker_name": "Lunka",
+                "speaker_internal": "Character.Secondary.Lunka",
+                "dur": 3.585
+            },
+            "E7D9A70645BDE6DE476793B3B19C81A6": {
+                "en": "Hey! Wait for me!",
+                "ru": "Эй! Подожди меня!",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 1.138
+            },
+            "F6E50B43485BB78C0B05A0B1AE5C5517": {
+                "en": "Lunka! Turn back!",
+                "ru": "Лунка! Назад!",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 1.403
+            },
+            "46DA2FF949AFF44553206EA1A2F77D5B": {
+                "en": "Come back right now! It's not funny!",
+                "ru": "А ну вернись! Это не смешно!",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 1.859
+            },
+            "37096FBC4100793CC01CDDB4126D9075": {
+                "en": "Where did she go?",
+                "ru": "Куда она ушла?",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 0.923
+            },
+            "D76D472840ADA9F5573B80BA5548128C": {
+                "en": "Where the hell is she?",
+                "ru": "Где же она, чёрт возьми?",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 0.918
+            },
+            "66872C4F4B835968B2281985696B39D8": {
+                "en": "Ice...? But how?",
+                "ru": "Лёд...? Но как?",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 2.94
+            },
+            "6EC22280450B37F49B53318CFCE6C349": {
+                "en": "Shit... Lunka? Lunka?! Are you alright?!",
+                "ru": "Чёрт... Лунка? Лунка?! Ты цела?",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 4.198
+            },
+            "629D0FAB4E54E00976A9E993472E4F3D": {
+                "en": "Explains the blood, but... God. What did this?",
+                "ru": "Кровь это объясняет, но... Боже. Кто это сделал?",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 4.236
+            },
+            "5E4AA9DC4CA8B94821BBC4BA2503C051": {
+                "en": "Jesus...",
+                "ru": "Господи...",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 0.784
+            },
+            "87DC4BBA48D69AD7FECE2D8CBB6FF35C": {
+                "en": "This doesn't make any sense...",
+                "ru": "В этом нет никакого смысла...",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 1.511
+            },
+            "CC27F9D0460AB425868EA39F8AA7732F": {
+                "en": "Fuck...",
+                "ru": "Блядь...",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 0.581
+            },
+            "E560C77E40F00B17EF362E84A25D2311": {
+                "en": "Hahaha!",
+                "ru": "Ха-ха-ха!",
+                "speaker_name": "Lunka",
+                "speaker_internal": "Character.Secondary.Lunka",
+                "dur": 1.505
+            },
+            "3ADB14694712DB9941BF299CDF9DB0AE": {
+                "en": "Hey! Don't run off again!",
+                "ru": "Эй! Не убегай снова!",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 1.663
+            },
+            "F9D6F498439DEAD3077C5D9D49B1C6D1": {
+                "en": "Hahaha!",
+                "ru": "Ха-ха-ха!",
+                "speaker_name": "Lunka",
+                "speaker_internal": "Character.Secondary.Lunka",
+                "dur": 3.047
+            },
+            "B4DD51304C7894663946DD87D80A2DB1": {
+                "en": "What is this place?",
+                "ru": "Что это за место?",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 1.002
+            },
+            "49BC316D4243A9CE6E8ECEB67ED94BDF": {
+                "en": "Impossible...",
+                "ru": "Невозможно...",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 0.852
+            },
+            "401366544A2981C32B8D7CBCBE036519": {
+                "en": "Oh, we'll have a word when I find you.",
+                "ru": "О, мы ещё поговорим, когда я тебя найду.",
+                "speaker_name": "Coen",
+                "speaker_internal": "Character.Main.Coen",
+                "dur": 2.372
+            }
+        }
+    },
+    "_uncovered_c_scenes": {
+        "c_uriash_vilage_language_lesson": {
+            "01986A1445E8C13E2BDFDCB50A290081": {
+                "en": "[bleat]",
+                "ru": "[блеет]",
+                "speaker_name": "Uriash Vilage Language Lesson",
+                "speaker_internal": "c_uriash_vilage_language_lesson",
+                "dur": 1.385
+            },
+            "0E803106486DF59098EC738DA102CF88": {
+                "en": "Human, I lost. Where other uriashi?",
+                "ru": "Человек, я потеряться. Где другие уриаши?",
+                "speaker_name": "Uriash Vilage Language Lesson",
+                "speaker_internal": "c_uriash_vilage_language_lesson",
+                "dur": 5.976
+            }
+        }
+    }
+}
