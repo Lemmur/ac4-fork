@@ -200,9 +200,52 @@ DubbingMeta makeSmallMeta()
     return meta;
 }
 
-//! Домен масштаба реального проекта: 30 000 реплик
-//! (50 файлов x 60 сцен x 10 реплик; спикеры/статусы/расхождения вразброс).
+//! Домен для нагрузочного критерия §M3: ОДИН файл игры с 30 000 реплик
+//! (Select файла ограничивает список одним файлом — грузим его целиком;
+//! 600 сцен x 50 реплик, спикеры/статусы/расхождения вразброс).
 DubbingMeta make30kMeta()
+{
+    DubbingMeta meta;
+    meta.isDubbing = true;
+
+    int counter = 0;
+    GameFile file;
+    file.fileId = "file_big";
+    file.scenes.reserve(600);
+    for (int s = 0; s < 600; ++s) {
+        Scene scene;
+        scene.questId = "quest_" + std::to_string(s);
+        scene.lines.reserve(50);
+        for (int l = 0; l < 50; ++l) {
+            Line line;
+            char guid[33];
+            snprintf(guid, sizeof(guid), "%032X", counter);
+            line.guid = guid;
+            line.en = "English line number " + std::to_string(counter);
+            line.ru = "Русская реплика номер " + std::to_string(counter);
+            line.speakerName = (counter % 5 == 0) ? "UNKNOWN" : ("Speaker " + std::to_string(counter % 7));
+            line.speakerInternal = "Character.Test." + std::to_string(counter % 7);
+            line.dur = 0.5 + (counter % 40) * 0.1;
+            line.actualDur = (counter % 11 == 0) ? -1.0 : line.dur;
+            if (counter % 7 == 0) {
+                line.actualDur = line.dur + 0.5; //!< расхождение > порога
+            }
+            line.refTrackId = (counter % 11 == 0) ? NO_TRACK_ID : 0;
+            line.refClipId = (counter % 11 == 0) ? NO_CLIP_ID : counter;
+            line.orderIndex = counter;
+            line.status = static_cast<LineStatus>(counter % 5);
+            scene.lines.push_back(std::move(line));
+            ++counter;
+        }
+        file.scenes.push_back(std::move(scene));
+    }
+    meta.files.push_back(std::move(file));
+    assert(counter == 30000);
+    return meta;
+}
+
+//! Домен многих файлов: 50 файлов x 60 сцен x 10 реплик (тест Select'а).
+DubbingMeta makeManyFilesMeta()
 {
     DubbingMeta meta;
     meta.isDubbing = true;
@@ -222,19 +265,11 @@ DubbingMeta make30kMeta()
                 char guid[33];
                 snprintf(guid, sizeof(guid), "%032X", counter);
                 line.guid = guid;
-                line.en = "English line number " + std::to_string(counter);
-                line.ru = "Русская реплика номер " + std::to_string(counter);
-                line.speakerName = (counter % 5 == 0) ? "UNKNOWN" : ("Speaker " + std::to_string(counter % 7));
-                line.speakerInternal = "Character.Test." + std::to_string(counter % 7);
-                line.dur = 0.5 + (counter % 40) * 0.1;
-                line.actualDur = (counter % 11 == 0) ? -1.0 : line.dur;
-                if (counter % 7 == 0) {
-                    line.actualDur = line.dur + 0.5; //!< расхождение > порога
-                }
-                line.refTrackId = (counter % 11 == 0) ? NO_TRACK_ID : 0;
-                line.refClipId = (counter % 11 == 0) ? NO_CLIP_ID : counter;
+                line.en = "English line " + std::to_string(counter);
+                line.ru = "Русская реплика " + std::to_string(counter);
+                line.speakerName = (counter % 5 == 0) ? "UNKNOWN" : "Speaker";
+                line.dur = 1.0;
                 line.orderIndex = counter;
-                line.status = static_cast<LineStatus>(counter % 5);
                 scene.lines.push_back(std::move(line));
                 ++counter;
             }
@@ -242,7 +277,6 @@ DubbingMeta make30kMeta()
         }
         meta.files.push_back(std::move(file));
     }
-    assert(counter == 30000);
     return meta;
 }
 
@@ -431,7 +465,8 @@ protected:
     au::trackedit::TrackIdList m_selectedTracks;
 };
 
-//! Модель строится из снимка домена: порядок строк = порядок домена,
+//! Модель строится из снимка домена: раскрывающиеся заголовки сцен
+//! (первая раскрыта, остальные свёрнуты), реплики в порядке домена,
 //! роли (статус/спикер/EN/RU/длительности/расхождение) заполняются верно.
 TEST_F(DubbingPanelTests, ModelBuild_RolesAndOrder)
 {
@@ -440,46 +475,110 @@ TEST_F(DubbingPanelTests, ModelBuild_RolesAndOrder)
     auto model = makeModel();
     model->reload();
 
-    ASSERT_EQ(model->rowCount(), 4);
-
     const auto row = [&model](int r, LinesListModel::Roles role) {
         return model->data(model->index(r, 0), role);
     };
 
-    EXPECT_EQ(row(0, LinesListModel::GuidRole).toString().toStdString(),
+    //! Файл (первый уровень) выбирается автоматически — единственный
+    EXPECT_EQ(model->fileIds().size(), 1u);
+    EXPECT_EQ(model->fileId().toStdString(), "q000_intro");
+
+    //! Раскладка: [H scene_one][3 реплики][H scene_two(свёрнута)]
+    ASSERT_EQ(model->rowCount(), 5);
+    EXPECT_EQ(row(0, LinesListModel::RowTypeRole).toInt(),
+              static_cast<int>(LinesListModel::SceneHeaderRow));
+    EXPECT_EQ(row(0, LinesListModel::SectionTitleRole).toString().toStdString(), "scene_one");
+    EXPECT_EQ(row(0, LinesListModel::SectionLineCountRole).toInt(), 3);
+    EXPECT_TRUE(row(0, LinesListModel::ExpandedRole).toBool());
+
+    EXPECT_EQ(row(1, LinesListModel::GuidRole).toString().toStdString(),
               "A0000000000000000000000000000001");
-    EXPECT_EQ(row(0, LinesListModel::StatusTextRole).toString().toStdString(), "Новая");
-    EXPECT_EQ(row(1, LinesListModel::StatusTextRole).toString().toStdString(), "В работе");
-    EXPECT_EQ(row(2, LinesListModel::StatusTextRole).toString().toStdString(), "Нет референса");
-    EXPECT_EQ(row(3, LinesListModel::StatusTextRole).toString().toStdString(), "Готова");
+    EXPECT_EQ(row(1, LinesListModel::StatusTextRole).toString().toStdString(), "Новая");
+    EXPECT_EQ(row(2, LinesListModel::StatusTextRole).toString().toStdString(), "В работе");
+    EXPECT_EQ(row(3, LinesListModel::StatusTextRole).toString().toStdString(), "Нет референса");
 
-    EXPECT_EQ(row(0, LinesListModel::SpeakerRole).toString().toStdString(), "Lunka");
-    EXPECT_EQ(row(1, LinesListModel::SpeakerRole).toString().toStdString(), "UNKNOWN");
+    EXPECT_EQ(row(4, LinesListModel::RowTypeRole).toInt(),
+              static_cast<int>(LinesListModel::SceneHeaderRow));
+    EXPECT_EQ(row(4, LinesListModel::SectionTitleRole).toString().toStdString(), "scene_two");
+    EXPECT_FALSE(row(4, LinesListModel::ExpandedRole).toBool());
 
-    EXPECT_EQ(row(0, LinesListModel::EnRole).toString().toStdString(), "Hello Coen");
-    EXPECT_EQ(row(0, LinesListModel::RuRole).toString().toStdString(), "Привет, Коэн");
+    EXPECT_EQ(row(1, LinesListModel::SpeakerRole).toString().toStdString(), "Lunka");
+    EXPECT_EQ(row(2, LinesListModel::SpeakerRole).toString().toStdString(), "UNKNOWN");
 
-    //! длительность колонки: фактическая, если известна, иначе из JSON
-    EXPECT_NEAR(row(0, LinesListModel::DurRole).toDouble(), 1.02, 1e-9);
-    EXPECT_NEAR(row(2, LinesListModel::DurRole).toDouble(), 3.0, 1e-9);
+    EXPECT_EQ(row(1, LinesListModel::EnRole).toString().toStdString(), "Hello Coen");
+    EXPECT_EQ(row(1, LinesListModel::RuRole).toString().toStdString(), "Привет, Коэн");
 
-    //! расхождение: 0.5 у второй строки, неизвестно -> 0/нет
-    EXPECT_NEAR(row(1, LinesListModel::MismatchRole).toDouble(), 0.5, 1e-9);
-    EXPECT_FALSE(row(0, LinesListModel::HasMismatchRole).toBool());
-    EXPECT_TRUE(row(1, LinesListModel::HasMismatchRole).toBool());
-    EXPECT_FALSE(row(2, LinesListModel::HasMismatchRole).toBool()); //!< actualDur неизвестна
+    //! длительность: фактическая, если известна, иначе из JSON
+    EXPECT_NEAR(row(1, LinesListModel::DurRole).toDouble(), 1.02, 1e-9);
+    EXPECT_NEAR(row(3, LinesListModel::DurRole).toDouble(), 3.0, 1e-9);
 
-    EXPECT_TRUE(row(0, LinesListModel::HasReferenceRole).toBool());
-    EXPECT_FALSE(row(2, LinesListModel::HasReferenceRole).toBool());
+    //! расхождение: 0.5 у второй реплики, неизвестно -> 0/нет
+    EXPECT_NEAR(row(2, LinesListModel::MismatchRole).toDouble(), 0.5, 1e-9);
+    EXPECT_FALSE(row(1, LinesListModel::HasMismatchRole).toBool());
+    EXPECT_TRUE(row(2, LinesListModel::HasMismatchRole).toBool());
+    EXPECT_FALSE(row(3, LinesListModel::HasMismatchRole).toBool()); //!< actualDur неизвестна
+
+    EXPECT_TRUE(row(1, LinesListModel::HasReferenceRole).toBool());
+    EXPECT_FALSE(row(3, LinesListModel::HasReferenceRole).toBool());
+
+    //! Раскрытие scene_two: строка l4 появляется; повторное — сворачивает
+    const QString key2 = row(4, LinesListModel::SectionKeyRole).toString();
+    model->toggleScene(key2);
+    ASSERT_EQ(model->rowCount(), 6);
+    EXPECT_EQ(row(5, LinesListModel::GuidRole).toString().toStdString(),
+              "A0000000000000000000000000000004");
+    EXPECT_EQ(row(5, LinesListModel::StatusTextRole).toString().toStdString(), "Готова");
+
+    model->toggleScene(key2);
+    EXPECT_EQ(model->rowCount(), 5);
+
+    //! Развернуть/свернуть всё
+    model->setAllScenesExpanded(true);
+    EXPECT_EQ(model->rowCount(), 6); //!< 2 заголовка + 4 реплики
+    model->setAllScenesExpanded(false);
+    EXPECT_EQ(model->rowCount(), 2); //!< только заголовки
+}
+
+//! Иерархия первого уровня: выбор файла (Select над списком) ограничивает
+//! раскладку сценами выбранного файла; свёрнутость переживает переключение.
+TEST_F(DubbingPanelTests, Hierarchy_FileSelectAndSections)
+{
+    meta() = makeManyFilesMeta(); //!< 50 файлов x 60 сцен x 10 реплик
+
+    auto model = makeModel();
+    model->reload();
+
+    ASSERT_EQ(model->fileIds().size(), 50u);
+    EXPECT_EQ(model->fileId().toStdString(), "file_0"); //!< авто-выбор первого
+
+    //! file_0: 60 заголовков; первая сцена раскрыта (+10 реплик)
+    EXPECT_EQ(model->rowCount(), 60 + 10);
+
+    //! выбираем file_7: только его сцены, первая раскрыта
+    model->setFileId(QStringLiteral("file_7"));
+    EXPECT_EQ(model->rowCount(), 60 + 10);
+    EXPECT_EQ(model->data(model->index(0, 0), LinesListModel::SectionTitleRole).toString().toStdString(),
+              "quest_7_0");
+
+    //! развернуть всё в file_7: 60 заголовков + 600 реплик
+    model->setAllScenesExpanded(true);
+    EXPECT_EQ(model->rowCount(), 60 + 600);
+
+    //! возврат к file_0: раскладка file_0 не тронута (свёрнутость по ключам)
+    model->setFileId(QStringLiteral("file_0"));
+    EXPECT_EQ(model->rowCount(), 60 + 10);
 }
 
 //! Фильтры §6.3: UNKNOWN / статус / расхождение / нет референса.
+//! Режим фильтрации включает ВСЕ реплики файла, включая свёрнутые секции.
 TEST_F(DubbingPanelTests, Filters_UnknownStatusMismatchNoReference)
 {
     meta() = makeSmallMeta();
 
     auto model = makeModel();
     model->reload();
+    model->setFilteringActive(true); //!< плоский список (scene_two свёрнута!)
+    ASSERT_EQ(model->rowCount(), 4);
 
     LinesFilterModel filter;
     filter.setSourceModel(model.get());
@@ -536,6 +635,8 @@ TEST_F(DubbingPanelTests, Search_FullText)
 
     auto model = makeModel();
     model->reload();
+    model->setFilteringActive(true);
+    ASSERT_EQ(model->rowCount(), 4);
 
     LinesFilterModel filter;
     filter.setSourceModel(model.get());
@@ -568,9 +669,11 @@ TEST_F(DubbingPanelTests, Search_FullText)
     filter.setSearchText("нет такой строки");
     EXPECT_EQ(count(), 0);
 
-    //! сброс поиска
+    //! сброс поиска (как syncFilteringMode в QML): возвращается иерархия —
+    //! 2 заголовка + 3 реплики раскрытой первой сцены
     filter.setSearchText("");
-    EXPECT_EQ(count(), 4);
+    model->setFilteringActive(false);
+    EXPECT_EQ(count(), 5);
 }
 
 //! Критерий готовности §M3: 30 000 реплик. Замеры: построение модели,
@@ -580,22 +683,35 @@ TEST_F(DubbingPanelTests, Search_FullText)
 TEST_F(DubbingPanelTests, Virtualization_30k_Performance)
 {
     const int totalLines = 30000;
-    meta() = make30kMeta();
+    meta() = make30kMeta(); //!< ОДИН файл: 600 сцен x 50 реплик
 
     auto model = makeModel();
 
-    //! 1) Построение модели из снимка домена
+    //! 1) Построение модели из снимка домена (свёрнутые секции:
+    //! 600 заголовков + 50 реплик раскрытой первой сцены)
     const auto t0 = std::chrono::steady_clock::now();
     model->reload();
     const double buildMs = msSince(t0);
-    std::cout << "[  PERF  ] build 30000 rows: " << buildMs << " ms" << std::endl;
-    ASSERT_EQ(model->rowCount(), totalLines);
+    std::cout << "[  PERF  ] build 30000 rows (collapsed): " << buildMs << " ms" << std::endl;
+    ASSERT_EQ(model->rowCount(), 600 + 50);
     EXPECT_LT(buildMs, 2000.0) << "построение модели на 30 000 реплик уложилось в бюджет";
+
+    //! 1б) Полная раскладка: все секции раскрыты (600 заголовков + 30000 реплик)
+    const auto t0b = std::chrono::steady_clock::now();
+    model->setAllScenesExpanded(true);
+    const double expandMs = msSince(t0b);
+    std::cout << "[  PERF  ] expand all (30600 rows): " << expandMs << " ms" << std::endl;
+    ASSERT_EQ(model->rowCount(), totalLines + 600);
+    EXPECT_LT(expandMs, 2000.0);
 
     LinesFilterModel filter;
     filter.setSourceModel(model.get());
 
-    //! 2) Проход фильтра «UNKNOWN» по всем 30 000 строкам
+    //! 2) Проход фильтра «UNKNOWN» по 30 000 реплик: включаем поисковый
+    //! режим (плоский список, свёрнутость секций не мешает фильтрам)
+    model->setFilteringActive(true);
+
+    //! 2) Проход фильтра «UNKNOWN» по 30 000 реплик (заголовки скрыты)
     const auto t1 = std::chrono::steady_clock::now();
     filter.setOnlyUnknown(true);
     const double filterMs = msSince(t1);
@@ -617,9 +733,11 @@ TEST_F(DubbingPanelTests, Virtualization_30k_Performance)
     EXPECT_LT(searchMs, 1000.0);
 
     //! 4) Выборка видимой страницы (эмуляция кадра ListView):
-    //! 50 строк x все роли, из середины списка.
+    //! 50 строк x все роли, из середины списка (возврат к иерархии 30600).
     filter.setSearchText("");
     filter.setOnlyUnknown(false);
+    model->setFilteringActive(false);
+    ASSERT_EQ(model->rowCount(), totalLines + 600);
 
     static const int roles[] = {
         LinesListModel::GuidRole, LinesListModel::FileIdRole, LinesListModel::QuestIdRole,
@@ -716,8 +834,22 @@ TEST_F(DubbingPanelTests, PanelTextEdit_UndoRedo_ModelFollows)
     const std::string original = findLine(meta(), GUID_FIRST)->ru;
 
     auto model = makeModel();
-    model->reload(); //!< подключает domainChanged
-    ASSERT_EQ(model->rowCount(), 47);
+    model->reload(); //!< подключает domainChanged + иерархия (первый файл)
+
+    //! Строка реплики ищется сканом по guid (раскладка содержит заголовки сцен)
+    const auto findRow = [&model](const char* guid) {
+        for (int r = 0; r < model->rowCount(); ++r) {
+            if (model->data(model->index(r, 0), LinesListModel::GuidRole).toString().toStdString()
+                == guid) {
+                return r;
+            }
+        }
+        return -1;
+    };
+
+    //! GUID_FIRST — в первом файле домена: раскрываем все сцены и находим
+    model->setAllScenesExpanded(true);
+    ASSERT_GE(findRow(GUID_FIRST), 0);
 
     auto controller = makeController();
     ASSERT_TRUE(controller->setRuText(QString::fromUtf8(GUID_FIRST), "Правка из панели"));
@@ -726,14 +858,16 @@ TEST_F(DubbingPanelTests, PanelTextEdit_UndoRedo_ModelFollows)
     EXPECT_EQ(findLine(meta(), GUID_FIRST)->ru, "Правка из панели");
 
     //! модель перестроилась по domainChanged БЕЗ ручного reload()
-    const QModelIndex idx = model->index(0, 0);
-    ASSERT_EQ(model->data(idx, LinesListModel::GuidRole).toString().toStdString(), GUID_FIRST);
-    EXPECT_EQ(model->data(idx, LinesListModel::RuRole).toString().toStdString(), "Правка из панели");
+    const int row = findRow(GUID_FIRST);
+    ASSERT_GE(row, 0);
+    EXPECT_EQ(model->data(model->index(row, 0), LinesListModel::RuRole).toString().toStdString(),
+              "Правка из панели");
 
     //! отмена правки (Ctrl+Z): штатный undo, один шаг
     m_history->undo();
     EXPECT_EQ(findLine(meta(), GUID_FIRST)->ru, original);
-    EXPECT_EQ(model->data(model->index(0, 0), LinesListModel::RuRole).toString().toStdString(), original);
+    EXPECT_EQ(model->data(model->index(findRow(GUID_FIRST), 0),
+                          LinesListModel::RuRole).toString().toStdString(), original);
 
     //! возврат (Ctrl+Shift+Z)
     m_history->redo();
