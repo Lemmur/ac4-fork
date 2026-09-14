@@ -409,6 +409,20 @@ effective_status = status ?? not_started.
    запись предыдущего снапшота файла (architecture.md §16.5).
 8. Открытый вопрос к владельцу: debounce записи на диск (рекомендация:
    писать сразу; debounce — только по замерам).
+9. Сценарий формирования проекта «из пустого» (architecture.md §16.8):
+   диалог выбора quest-JSON (файл/папка) + папки WAV -> раскладка
+   MyDub-пакета (исходники -> phrases/{quest}.json read-only зеркало,
+   референсы -> refs/{guid}.wav, пустой phrases_status/ рядом) ->
+   построение домена (fileId = имя quest-файла). Инкрементальный
+   реимпорт новой версии phrases/{quest}.json: ru в домене обновляется,
+   ru_override НЕ затирается, расхождение base_ru_snapshot vs новый
+   ru фиксируется как данные для staleness-UI (M4/M5).
+
+**Критерий готовности M2.5 (тест):** пустой .aup4 + quest-файл студии +
+папка WAV -> заполненный проект, панель M3 показывает реплики; правка
+RU пишет ru_override в phrases_status/{quest}.json (undo — один шаг,
+файл откатывается); реимпорт обновлённого phrases/ не затирает
+ru_override и фиксирует staleness-данные.
 
 Затрагиваемые файлы (предварительно): `src/dubbing/import/
 dubbingjsonreader.*` (формат + dur), новый `src/dubbing/sidecar/`
