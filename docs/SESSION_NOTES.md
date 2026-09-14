@@ -140,3 +140,56 @@
 каркас src/dubbing, персистентность, тип проекта, тест, пакет
 доказательств по AGENTS.md §9 (git diff --stat, лог сборки, лог теста,
 git log, инструкция ручной проверки).
+
+### Итоги M0 + M1 (та же сессия, 2026-09-14)
+
+**M0 (ВЫПОЛНЕНО):**
+- Окружение: VS 18 BuildTools MSVC 14.50 (cl 19.50), CMake 4.2.3-msvc3 +
+  Ninja (из состава VS), Qt 6.10.1 msvc2022_64.
+- Пресет `audacity-debug` НЕ собирается на этой машине: muse_deps использует
+  prebuilt только при RelWithDebInfo (resolve.cmake:460-461), source-fallback
+  падает на libpng/ZLIB. Рабочий пресет — `audacity-release`.
+- По требованию пользователя выполнена ПОЛНАЯ ЧИСТАЯ пересборка (удалены
+  build/, build.release/, build.install/, старый exe 11:41 → свежий 12:26):
+  3319 целей, exit 0.
+- ctest требует PATH (Qt bin + все _deps\*\bin + _deps\wxwidgets\lib\vc_x64_dll);
+  команды зафиксированы в roadmap.md §M0.
+- Результат: 28/29 (после M1; до M1 — 27/28). Единственный красный:
+  `au_project_tests::Load_FileCannotBeOpened_ReturnsCantOpen` — окруженческий
+  (read-protected файл открывается под этим пользователем), воспроизводится
+  на чистой сборке, наших изменений не касается.
+
+**M1 (ВЫПОЛНЕНО, ветка feature/dubbing-m1-core, коммит 4022342b6,
+17 файлов, +771/−12):**
+- Создан модуль `src/dubbing`: dubbingtypes.h (домен), DubbingProject
+  (attached-объект + XMLTagHandler), DubbingStateExtension (undo),
+  DubbingModule (линковка регистраций), тесты + environment (SuiteEnvironment
+  с Au3WrapModule — без него SEH в AudacityProject::Create).
+- Ключевое уточнение механизма (зафиксировано в roadmap): персистентность —
+  НЕ ProjectFileIOExtension/WriteBlob (OnUpdateSaved вызывается после записи
+  doc), а штатный `ProjectFileIORegistry` (XMLMethodRegistry<AudacityProject>):
+  ObjectWriterEntry пишет `<dubbing>` в корень `<project>` при каждом
+  Save/AutoSave (ProjectFileIO.cpp:1862 CallWriters), ObjectReaderEntry
+  читает при Load. Undo — UndoStateExtension::RestoreUndoRedoState через
+  ProjectHistory::PopState.
+- Проводка: src/CMakeLists.txt, appfactory.cpp, src/app/CMakeLists.txt
+  (add_to_link_if_exists), ProjectCreateOptions.dubbing, опция
+  AU_BUILD_DUBBING_TESTS.
+- Грабли, собранные по ходу: attached-объект обязан наследовать
+  ClientData::Base; `AttachedObjects` (не AttachedProjectObjects) — алиас
+  внутри AudacityProject; TrackList живёт в au3-track/Track.h; тестам нужен
+  wxBase в link и muse SuiteEnvironment.
+- Тест `dubbing_tests` 3/3 OK (undo/redo текста; round-trip save/load через
+  Au3ProjectAccessor — домен идентичен; обычный проект не дубляж).
+  Полный набор: 28/29.
+- В M1 НЕ вошло (перенесено в M2): IOC-интерфейс idubbingproject,
+  настройки dubbingconfiguration, диалог выбора типа при создании.
+
+**Дистрибутив для ручной проверки (по запросу пользователя):**
+`cmake --install build\audacity-release --prefix D:/auda/audacity/dist` —
+self-contained каталог `dist/` (bin/Audacity4.exe + Qt6*/MSVC/сторонние DLL,
+qml, plugins, translations, nyquist, qt.conf; windeployqt отработал).
+Smoke-тест как в CI: `dist\bin\Audacity4.exe --plugin-registration-self-test`
+→ exit 0. Команда внесена в roadmap.md §M0.
+
+**Открытые вопросы:** нет новых; ждём ревью M1 и разрешения на M2.

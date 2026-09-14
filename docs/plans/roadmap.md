@@ -66,6 +66,10 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\
 powershell -NoProfile -Command "$root = 'd:/auda/audacity/build/audacity-release'; $bins = Get-ChildItem -Directory ($root + '/_deps') | ForEach-Object { Join-Path $_.FullName 'bin' } | Where-Object { Test-Path $_ }; $env:PATH = 'D:/Qt/6.10.1/msvc2022_64/bin;' + $root + '/_deps/wxwidgets/lib/vc_x64_dll;' + ($bins -join ';') + ';' + $env:PATH; & 'C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/ctest.exe' --test-dir $root --output-on-failure"
 ```
 
+:: 4) Дистрибутив для ручной проверки (self-contained, с windeployqt)
+"C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" --install build\audacity-release --prefix D:/auda/audacity/dist
+:: Проверка: dist\bin\Audacity4.exe --plugin-registration-self-test  (exit 0)
+
 **Результат M0:** сборка успешна (3319 целей, `src/app/bin/Audacity4.exe`,
 PortAudio+ASIO из исходников по REBUILD-флагу); ctest — **27/28 пройдено**.
 Заранее красный (окружение, не наши изменения): `au_project_tests`, кейс
