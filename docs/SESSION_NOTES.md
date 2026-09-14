@@ -320,3 +320,79 @@ Smoke-тест как в CI: `dist\bin\Audacity4.exe --plugin-registration-self-
 
 **Открытые вопросы:** нет. M2 закрыт; пуш ветки и ff-обновление master
 выполнены по разрешению владельца.
+
+---
+
+## Сессия 2026-09-14 (шестая) — M3: панель списка реплик
+
+**Сделано (ветка feature/dubbing-m3-panel от master @ 9fd6c4dfd):**
+- C++: `panel/lineslistmodel.*` (плоская модель, data()/rowCount() O(1),
+  роли: guid/файл/сцена/статус+русский текст/спикер/EN/RU/длительности/
+  расхождение/ссылки; searchBlob — предвычисленный lowercase для поиска),
+  `panel/linesfiltermodel.*` (QSortFilterProxyModel: UNKNOWN/статус/
+  расхождение/без референса + поиск; begin/endFilterChange — Qt 6.10
+  deprecated invalidateFilter), `panel/lineworkspacecontroller.*`
+  (openLine: выделение клипа + setLastPlaybackSeekTime; lineInfo; setRuText
+  через IDubbingProject::setLineRu).
+- QML: `qml/Audacity/Dubbing/LinesPanel.qml` + qmldir + `dubbing.qrc`;
+  регистрация типов в DubbingModule::registerUiTypes (URI
+  «Audacity.Dubbing»), registerResources (Q_INIT_RESOURCE).
+- Регистрация панели (architecture §0.2 дословно): DockPanel в
+  ProjectPage.qml `panels: [...]`, `linesPanelName()` в ProjectPageModel,
+  LINES_PANEL_NAME в appshelltypes.h, действие toggle-lines
+  (ApplicationUiActions + карта toggleDockActions) + пункт меню
+  «Вид -> Реплики» (appmenumodel.cpp). По умолчанию скрыта.
+- Домен: `Line::actualDur` (фактическая длительность WAV, -1 = неизвестно;
+  заполняется на импорте и для уже импортированных), XML-атрибут
+  `actual_dur` опционален (старые файлы читаются, версия схемы не менялась,
+  round-trip доказан тестом). IDubbingProject += domainSnapshot() /
+  isDubbingProject().
+- Модель следует undo/redo: подписка на IProjectHistory::historyChanged
+  (DubbingStateExtension восстанавливает домен молча — как HistoryPanelModel).
+- Тесты `dubbingpanel_tests.cpp` (7 кейсов): роли/порядок; все фильтры;
+  поиск (RU/EN/guid/сцена, регистронезависимо); 30 000 реплик с замерами
+  (build 45 мс, фильтр 12 мс/6000, поиск 6 мс, 10 страниц по 50 строк
+  0.28 мс, 100k rowCount 2.7 мс); openLine (EXPECT_CALL на выделение +
+  позицию, референс-отрицание, lineInfo); правка из панели с undo/redo и
+  автообновлением модели; actualDur round-trip через save/load.
+- Результаты: dubbing_tests **17/17**; полный ctest **29/29 (100%)**;
+  audacity.exe собран; смок `--plugin-registration-self-test` exit 0.
+
+**Грабли, собранные по ходу (важно для следующих модулей):**
+1. Inject-поля muse НЕ имеют члена `.val` — только `get()/operator()/set()`;
+   проверки на null: `if (auto x = inject())`. Inject-поля для .set() из
+   тестов обязаны быть в public-секции класса.
+2. Тестовый фиксчер с реальным importProject ОБЯЗАН мокать
+   `TrackeditProjectMock::trackList()` реальными дорожками (DomConverter)
+   — иначе addWaveTrack/paste падают SEH 0xc0000005 (в M2-фиксчере был,
+   при копировании в M3 пропущен — найден бисекцией с cerr-метками;
+   cout через пайп теряется при SEH, cerr — нет).
+3. QSortFilterProxyModel Qt 6.10: invalidateFilter() deprecated —
+   beginFilterChange()/endFilterChange() вокруг смены критериев.
+4. Фильтр «расхождение» должен сверять actualDur с dur ИЗ JSON, а не с
+   DurRole (та возвращает фактическую, если известна — diff всегда 0);
+   для этого в модели DeclaredDurRole.
+5. QObject-прокси нельзя переприсваивать (`filter = LinesFilterModel{}`) —
+   сбрасывать сеттерами.
+6. gmock-матчеры типа DoubleNear не конвертятся в Matcher<number_t<double>>
+   — снимать значения Invoke-ом.
+7. QML: у C++ QAbstractListModel rowCount() вызывается из QML (прецеденты
+   в project); count надёжнее брать у ListView; StyledDropdown принимает
+   model как массив {text, value}; в теме НЕТ danger/warning-цветов —
+   использованы stroke/link/accent/button.
+8. QRC-модуль QML: qmldir с `module Audacity.Dubbing` в qrc (prefix «/»),
+   движок имеет «:/qml» в путях импорта (uiengine.cpp:77) — отдельная
+   регистрация пути не нужна.
+
+**Расхождения с планом (формат AGENTS.md §9):** категория 1 (технические
+детали): имена файлов (опечатка плана linesslistmodel -> lineslistmodel);
+«скролл таймлайна» двойного клика реализован как выделение клипа +
+позиция воспроизведения (публичного API горизонтального скролла в AU4
+нет, TimelineContext приватен для projectscene — вид уходит к реплике
+при старте воспроизведения); панель по умолчанию скрыта (открывается
+«Вид -> Реплики»). Изменений контракта (категория 2) нет: правка RU —
+по-прежнему ОДИН pushHistoryState на правку; формат .aup4 расширен
+опциональным атрибутом actual_dur с сохранением обратной совместимости.
+
+**Открытые вопросы:** нет. Пуш ветки — после ревью владельца (как с M2).
+Ручная проверка UI — по инструкции из отчёта сессии.

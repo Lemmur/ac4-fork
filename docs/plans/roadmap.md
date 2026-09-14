@@ -280,6 +280,63 @@ M2.
 uicomponents, workspace; расширяются ProjectPage.qml/ProjectPageModel;
 с нуля — модель, фильтры, рабочая зона реплики.
 
+**Уточнения по факту реализации (M3, ветка feature/dubbing-m3-panel):**
+
+1. Фактические имена файлов: `panel/lineslistmodel.*`,
+   `panel/linesfiltermodel.*`, `panel/lineworkspacecontroller.*`
+   (в исходном плане `linesslistmodel` — опечатка), QML —
+   `src/dubbing/qml/Audacity/Dubbing/LinesPanel.qml` + `qmldir` в
+   `dubbing.qrc`; C++-типы регистрируются в `DubbingModule::registerUiTypes`
+   (`qmlRegisterType`, URI «Audacity.Dubbing», по образцу projectscene).
+2. Виртуализация: плоская развёртка домена в `std::vector<Row>` —
+   `data()`/`rowCount()` O(1), ListView создаёт делегаты только для видимых
+   строк; поиск — по предвычисленному lowercase-blob (один `contains` на
+   реплику). Замеры теста `Virtualization_30k_Performance` (реальный прогон,
+   RelWithDebInfo): построение 30 000 строк — 45–55 мс, проход фильтра
+   UNKNOWN — 12–14 мс (остаётся 6 000), полнотекстовый поиск — 6–7 мс,
+   10 «кадров» по 50 строк со всеми ролями — 0.28 мс, 100 000 вызовов
+   rowCount() — 2.7 мс.
+3. Колонка «расхождение» и одноимённый фильтр требуют фактическую
+   длительность WAV: в домен добавлено `Line::actualDur` (-1 = неизвестно;
+   заполняется при импорте — и для новых, и для уже импортированных клипов),
+   сериализация — опциональный атрибут `actual_dur` (старые проекты
+   читаются без него; версия схемы не меняется). `IDubbingProject` расширен
+   `domainSnapshot()` / `isDubbingProject()`.
+4. Фильтр «расхождение» сверяет `actualDur` с dur из JSON
+   (`DeclaredDurRole`); колонка «Длит.» показывает фактическую длительность,
+   если известна, иначе dur из JSON.
+5. Модель перестраивается по `domainChanged` И по
+   `IProjectHistory::historyChanged` (undo/redo восстанавливает домен молча
+   через DubbingStateExtension — панель обязана отражать отмену, тот же
+   приём, что у HistoryPanelModel).
+6. Двойной клик: `LineworkspaceController::openLine` — выделение
+   референс-клипа (`ISelectionController::setSelectedClips`) + позиция
+   воспроизведения в начало клипа (`IPlaybackController::
+   setLastPlaybackSeekTime`, путь PlaybackStateModel) + открытие текста
+   в рабочей зоне панели (EN ro / RU с правкой через `setLineRu` ->
+   pushHistoryState). Публичного API горизонтального скролла таймлайна в
+   AU4 нет (TimelineContext — внутренность projectscene); вид уходит к
+   реплике при старте воспроизведения от поставленной позиции.
+7. Регистрация панели: DockPanel «Реплики» в `panels: [...]`
+   ProjectPage.qml, имя — `ProjectPageModel::linesPanelName()` /
+   `LINES_PANEL_NAME("linesPanel")`; открытие — пункт «Вид -> Реплики»
+   (действие `toggle-lines`, ApplicationUiActions::toggleDockActions),
+   по умолчанию скрыта (как History).
+8. Правка RU из панели — тот же `IDubbingProject::setLineRu` (M2):
+   ОДИН pushHistoryState («Правка текста реплики») на правку; применяется
+   по Enter/потере фокуса поля. Тест `PanelTextEdit_UndoRedo_ModelFollows`
+   доказывает undo/redo и автоматическое обновление модели.
+
+**Статус: ВЫПОЛНЕНО (2026-09-14, ветка feature/dubbing-m3-panel).**
+Реальный прогон `dubbing_tests` — 17/17 OK (3 M1 + 7 M2 + 7 M3:
+ModelBuild_RolesAndOrder, Filters_UnknownStatusMismatchNoReference,
+Search_FullText, Virtualization_30k_Performance,
+OpenLine_SelectsClipAndSeeks, PanelTextEdit_UndoRedo_ModelFollows,
+ActualDur_SavedAndReloaded). Полный ctest — 29/29 (100%).
+Смок-тест приложения (`--plugin-registration-self-test`) — exit 0.
+Ручная проверка UI (открытие панели, скролл реальных 30k в QML,
+drag-докинг) — по инструкции из отчёта сессии.
+
 ## M4. Запись: циклические тейки, locked-референс, мастер (§6.4)
 
 **Muse-модули:** расширение `src/dubbing` (каталог `record/`) + правки
