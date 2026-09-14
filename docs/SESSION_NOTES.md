@@ -477,4 +477,10 @@ ListView и инстанцируемый через Loader, не видит ко
 единый делегат ListItemBlank с содержимым, переключаемым по rowType
 (visible), без Loader/Component; (6) запущенный dist\bin\Audacity4.exe
 блокирует cmake --install (Permission denied) — закрывать перед
-переустановкой.
+переустановкой; (7) muse CheckBox — НЕ QtQuick.Controls: сигнал
+clicked без параметров, checked сам НЕ переключается — в обработчике
+`checked = !checked` вручную (иначе чекбоксы «не работают»);
+(8) `model.rowCount` в QML — method-object («function () { [native
+code] }» в тексте) — для счётчика добавлено Q_PROPERTY count READ
+rowCount NOTIFY reloaded; (9) RowLayout не переносит детей — для
+тулбара в узкой панели использовать Flow.

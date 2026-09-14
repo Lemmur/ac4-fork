@@ -39,6 +39,9 @@ class LinesListModel : public QAbstractListModel, public QQmlParserStatus, publi
     //! обратно к раскрывающимся секциям.
     Q_PROPERTY(bool filteringActive READ isFilteringActive WRITE setFilteringActive NOTIFY filteringActiveChanged)
 
+    //! Число строк раскладки (для счётчика QML: rowCount без скобок — method)
+    Q_PROPERTY(int count READ rowCount NOTIFY reloaded)
+
 public:
     explicit LinesListModel(QObject* parent = nullptr);
 

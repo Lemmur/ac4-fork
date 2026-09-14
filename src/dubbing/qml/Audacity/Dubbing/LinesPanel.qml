@@ -26,8 +26,8 @@ Item {
 
     property string currentGuid: "" //!< реплика, открытая в рабочей зоне
 
-    readonly property int lineRowHeight: 52
-    readonly property int headerRowHeight: 32
+    readonly property int lineRowHeight: 46
+    readonly property int headerRowHeight: 28
     readonly property int colSpeakerWidth: 80
     readonly property int colDurWidth: 56
     readonly property int listRightMargin: 18 //!< запас справа: вертикальный скроллбар
@@ -152,8 +152,10 @@ Item {
                     id: unknownBox
                     text: "UNKNOWN"
 
+                    //! muse CheckBox не переключает checked сам — вручную
                     onClicked: {
-                        filterModel.onlyUnknown = checked
+                        unknownBox.checked = !unknownBox.checked
+                        filterModel.onlyUnknown = unknownBox.checked
                         syncFilteringMode()
                     }
                 }
@@ -163,7 +165,8 @@ Item {
                     text: "Расхождение"
 
                     onClicked: {
-                        filterModel.onlyMismatch = checked
+                        mismatchBox.checked = !mismatchBox.checked
+                        filterModel.onlyMismatch = mismatchBox.checked
                         syncFilteringMode()
                     }
                 }
@@ -173,7 +176,8 @@ Item {
                     text: "Без референса"
 
                     onClicked: {
-                        filterModel.onlyNoReference = checked
+                        noRefBox.checked = !noRefBox.checked
+                        filterModel.onlyNoReference = noRefBox.checked
                         syncFilteringMode()
                     }
                 }
@@ -197,7 +201,7 @@ Item {
                 }
 
                 StyledTextLabel {
-                    text: listView.count + " / " + linesModel.rowCount
+                    text: listView.count + " / " + linesModel.count
                 }
             }
         }
