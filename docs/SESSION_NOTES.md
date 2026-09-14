@@ -185,6 +185,25 @@ git log, инструкция ручной проверки).
 - В M1 НЕ вошло (перенесено в M2): IOC-интерфейс idubbingproject,
   настройки dubbingconfiguration, диалог выбора типа при создании.
 
+**Фикс assert-диалога wxWidgets (по требованию пользователя, коммит ff6fa31a3):**
+пользователь увидел «wxWidgets Debug Alert: DBConnection.cpp(703): assert
+!mpConnection failed — Project file was not closed at shutdown». Разбор:
+ConnectionPtr — attached-объект AudacityProject с unique_ptr<DBConnection>;
+закрытие — ProjectFileIO::CloseProject() (вызывается из
+Au3ProjectAccessor::close(), au3project.cpp:308). Причину держал НЕ наш код
+(DubbingProject/DubbingStateExtension не хранят соединений и IAu3Project;
+dubbing_tests закрывает оба accessor'а — потому в наших прогонах зависаний
+не было), а тест апстрима Load_FileCannotBeOpened: на Windows
+FILE_ATTRIBUTE_HIDDEN не запрещает чтение → load успешен → close не вызван
+(«can't close») → ConnectionPtr::~ConnectionPtr с открытым соединением →
+assert-диалог; хендлы держат empty_read_protected.aup4 (+wal/shm) — прямая
+причина «removeIfExists: failed» в логе (связь подтверждена: после фикса
+строки исчезли). Также testtools::removeIfExists теперь сбрасывает
+read-only/hidden перед std::remove (мусор write-protected кейсов).
+Итог: au_project_tests — 8 passed + 1 skip (Windows, осознанно); полный
+ctest — 100%, 29/29; в data/ мусора нет. M1 повторно подтверждён полным
+зелёным прогоном.
+
 **Дистрибутив для ручной проверки (по запросу пользователя):**
 `cmake --install build\audacity-release --prefix D:/auda/audacity/dist` —
 self-contained каталог `dist/` (bin/Audacity4.exe + Qt6*/MSVC/сторонние DLL,

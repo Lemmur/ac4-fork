@@ -71,13 +71,25 @@ powershell -NoProfile -Command "$root = 'd:/auda/audacity/build/audacity-release
 :: Проверка: dist\bin\Audacity4.exe --plugin-registration-self-test  (exit 0)
 
 **Результат M0:** сборка успешна (3319 целей, `src/app/bin/Audacity4.exe`,
-PortAudio+ASIO из исходников по REBUILD-флагу); ctest — **27/28 пройдено**.
-Заранее красный (окружение, не наши изменения): `au_project_tests`, кейс
-`Load_FileCannotBeOpened_ReturnsCantOpen` — тест создаёт read-protected файл
-и ждёт ошибку открытия; на этой машине файл открывается успешно
-(лог: `src/project/tests/audacityproject_tests.cpp:205` — Actual: true,
-Expected: false; плюс `removeIfExists` не может удалить защищённые файлы).
-Зафиксировано как известный красный тест апстрима на данной конфигурации.
+PortAudio+ASIO из исходников по REBUILD-флагу). ctest после фикса тестов
+(см. ниже) — **29/29 (100%)**.
+
+**Исправленный дефект тестов апстрима (коммит ff6fa31a3):** кейс
+`Load_FileCannotBeOpened_ReturnsCantOpen` на Windows падал и оставлял
+открытым соединение с БД. Цепочка: testtools «read protection» =
+`FILE_ATTRIBUTE_HIDDEN` (не запрещает чтение) → SQLite открывает файл →
+`load()` успешен → тест не вызывает close (апстрим-комментарий «can't close»)
+→ при разрушении проекта срабатывает `wxASSERT_MSG(!mpConnection, "Project
+file was not closed at shutdown")` в `ConnectionPtr::~ConnectionPtr`
+(`au3/libraries/au3-project-file-io/DBConnection.cpp:701-707`) — это и есть
+wxWidgets Debug Alert; незакрытое SQLite-соединение держит файловые хендлы —
+отсюда неудаляемый `empty_read_protected.aup4` (+`-wal`/`-shm`).
+Фикс: (1) кейс помечен `GTEST_SKIP` на Windows с пояснением (POSIX-семантика
+прав); (2) `testtools::removeIfExists` на Windows сбрасывает read-only/hidden
+атрибуты перед удалением — устранён мусор от write-protected кейсов.
+После фикса: полный вывод au_project_tests без `removeIfExists: failed`,
+в `data/` только штатные фикстуры, диалог assert'а не возникает (нет
+проектов, разрушаемых с открытым соединением).
 
 **Критерий готовности:** приложение собирается и запускается на целевой
 машине; ctest зелёный (или зафиксирован список заранее красных тестов
