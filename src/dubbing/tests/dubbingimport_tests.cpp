@@ -45,6 +45,7 @@
 #include "au3wrap/internal/domaccessor.h"
 #include "au3wrap/internal/domconverter.h"
 
+#include "au3-project-history/UndoManager.h"
 #include "au3-track/Track.h"
 
 #include "../internal/dubbingproject.h"
@@ -449,6 +450,75 @@ TEST_F(DubbingImportTests, ImportWavFolder_ClipsNoReferenceAndMismatch)
     EXPECT_NEAR(clip3->GetPlayEndTime(), clip2->GetPlayEndTime() + 2.2, 0.01);
 }
 
+//! (b-доп, M2-followup) Соседние расхождения в РАЗНЫЕ СТОРОНЫ: A короче dur,
+//! B длиннее, C снова короче. Через объединённый importProject: клипы идут
+//! подряд без наложений (start[i+1] == end[i]), длительность каждого клипа
+//! равна длительности ЕГО WAV (не dur из JSON), ClipKey каждой реплики
+//! указывает на ЕЁ клип (A — первый, B — второй, C — третий), предупреждений
+//! о расхождении — 3 шт.
+TEST_F(DubbingImportTests, NeighbourMismatchDuration_CorrectClipMapping)
+{
+    std::error_code ec;
+    std::filesystem::remove_all(wavDir(), ec);
+    writeSilenceWav(wavDir() / (std::string(GUID_FIRST) + ".wav"), 1.2);    //!< dur 1.861 -> короче
+    writeSilenceWav(wavDir() / (std::string(GUID_SECOND) + ".wav"), 1.9);   //!< dur 1.075 -> длиннее
+    writeSilenceWav(wavDir() / (std::string(GUID_MISMATCH) + ".wav"), 1.0); //!< dur 1.732 -> короче
+
+    auto result = m_service->importProject(muse::io::path_t(SAMPLE_JSON),
+                                           muse::io::path_t(wavDir().string()));
+    ASSERT_TRUE(result.ok) << joinErrors(result.json.errors) << joinErrors(result.wav.errors);
+    EXPECT_EQ(result.wav.importedCount, 3);
+
+    //! предупреждения о расхождении: 3 шт., в порядке реплик JSON
+    ASSERT_EQ(result.wav.mismatches.size(), 3u);
+    EXPECT_EQ(result.wav.mismatches[0].guid, GUID_FIRST);
+    EXPECT_EQ(result.wav.mismatches[1].guid, GUID_SECOND);
+    EXPECT_EQ(result.wav.mismatches[2].guid, GUID_MISMATCH);
+    EXPECT_LT(result.wav.mismatches[0].diff, 0.0); //!< короче
+    EXPECT_GT(result.wav.mismatches[1].diff, 0.0); //!< длиннее
+    EXPECT_LT(result.wav.mismatches[2].diff, 0.0); //!< короче
+
+    //! ссылки заполнены, все три клипа на одной REF-дорожке
+    Line* a = findLine(meta(), GUID_FIRST);
+    Line* b = findLine(meta(), GUID_SECOND);
+    Line* c = findLine(meta(), GUID_MISMATCH);
+    ASSERT_TRUE(a && b && c);
+    ASSERT_NE(a->refClipId, NO_CLIP_ID);
+    ASSERT_NE(b->refClipId, NO_CLIP_ID);
+    ASSERT_NE(c->refClipId, NO_CLIP_ID);
+    ASSERT_EQ(a->refTrackId, b->refTrackId);
+    ASSERT_EQ(b->refTrackId, c->refTrackId);
+
+    Au3WaveTrack* refTrack = DomAccessor::findWaveTrack(projectRef(), Au3TrackId(a->refTrackId));
+    ASSERT_TRUE(refTrack);
+    std::vector<std::shared_ptr<Au3WaveClip> > clips;
+    for (const auto& clip : refTrack->Intervals()) {
+        clips.push_back(clip);
+    }
+    ASSERT_EQ(clips.size(), 3u);
+
+    //! (в) ClipKey указывает на СВОЙ клип: A — первый, B — второй, C — третий
+    EXPECT_EQ(clips[0]->GetId(), a->refClipId);
+    EXPECT_EQ(clips[1]->GetId(), b->refClipId);
+    EXPECT_EQ(clips[2]->GetId(), c->refClipId);
+
+    //! факт. startTime/endTime клипов по треку + clip-id (DomAccessor)
+    auto clipA = DomAccessor::findWaveClip(refTrack, a->refClipId);
+    auto clipB = DomAccessor::findWaveClip(refTrack, b->refClipId);
+    auto clipC = DomAccessor::findWaveClip(refTrack, c->refClipId);
+    ASSERT_TRUE(clipA && clipB && clipC);
+
+    //! (а) клипы идут подряд без наложений: start[i+1] == end[i]
+    EXPECT_NEAR(clipA->GetPlayStartTime(), 0.0, 1e-6);
+    EXPECT_NEAR(clipB->GetPlayStartTime(), clipA->GetPlayEndTime(), 1e-6);
+    EXPECT_NEAR(clipC->GetPlayStartTime(), clipB->GetPlayEndTime(), 1e-6);
+
+    //! (б) длительность клипа == длительность ЕГО WAV (не dur из JSON)
+    EXPECT_NEAR(clipA->GetPlayEndTime() - clipA->GetPlayStartTime(), 1.2, 0.01);
+    EXPECT_NEAR(clipB->GetPlayEndTime() - clipB->GetPlayStartTime(), 1.9, 0.01);
+    EXPECT_NEAR(clipC->GetPlayEndTime() - clipC->GetPlayStartTime(), 1.0, 0.01);
+}
+
 //! (c) Инкрементальность: после правки RU-текста повторный импорт сохраняет
 //! правку, не дублирует реплики и клипы; новый WAV добавляется без наложений.
 TEST_F(DubbingImportTests, IncrementalImport_PreservesWork)
@@ -504,42 +574,32 @@ TEST_F(DubbingImportTests, IncrementalImport_PreservesWork)
     EXPECT_GE(newClip->GetPlayStartTime(), 1.861 + 1.075 + 2.2 - 0.01);
 }
 
-//! (d) Undo: один пуш на пакет; отмена возвращает проект к состоянию
-//! до импорта (мета без файлов + нет REF-дорожек).
+//! (d, M2-followup) Undo: importProject — ЕДИНЫЙ undo-шаг на весь импорт
+//! (JSON + WAV без промежуточного пуша); ОДНА отмена возвращает проект
+//! к состоянию до импорта (мета без файлов + нет REF-дорожек).
 TEST_F(DubbingImportTests, UndoRestoresPreImportState)
 {
     prepareWavFolder();
-    ASSERT_TRUE(m_service->importFromJson(muse::io::path_t(SAMPLE_JSON)).ok);
-    {
-        auto wavResult = m_service->importWavFolder(muse::io::path_t(wavDir().string()));
-        ASSERT_TRUE(wavResult.ok) << joinErrors(wavResult.errors);
-    }
 
-    //! ровно по ОДНОЙ записи отмены на пакет: InitialState + 2 пуша = 3 в стеке
-    //! (JSON и WAV — разные описания, CONSOLIDATE их не сливает: UndoManager.cpp:241-244)
-    EXPECT_EQ(m_history->undoRedoActionCount(), 3u);
+    auto result = m_service->importProject(muse::io::path_t(SAMPLE_JSON),
+                                           muse::io::path_t(wavDir().string()));
+    ASSERT_TRUE(result.ok) << joinErrors(result.json.errors) << joinErrors(result.wav.errors);
+    EXPECT_EQ(result.json.linesTotal, 47);
+    EXPECT_EQ(result.wav.importedCount, 3);
 
-    //! undo «Импорт дубляжа»: нет REF-дорожек, ссылки клипов сброшены
-    m_history->undo();
-    EXPECT_EQ(Au3TrackList::Get(projectRef()).Size(), 0u);
-    {
-        DubbingMeta& m = meta();
-        EXPECT_EQ(m.files.size(), 2u);
-        const Line* first = findLine(m, GUID_FIRST);
-        ASSERT_TRUE(first);
-        EXPECT_EQ(first->refTrackId, NO_TRACK_ID);
-        EXPECT_EQ(first->refClipId, NO_CLIP_ID);
-        EXPECT_EQ(first->status, LineStatus::New);
-    }
+    //! UndoManager::Get(project).GetNumStates() == 2: начальное состояние
+    //! (InitialState) + ОДНО импортное (промежуточного пуша «Импорт
+    //! метаданных дубляжа» больше нет — консолидация не нужна).
+    EXPECT_EQ(UndoManager::Get(projectRef()).GetNumStates(), 2u);
 
-    //! undo «Импорт метаданных дубляжа»: мета без файлов, проект не дубляжный
+    //! undo «Импорт дубляжа»: мета без файлов, проект не дубляжный, нет REF-дорожек
     m_history->undo();
     {
         DubbingMeta& m = meta();
         EXPECT_TRUE(m.files.empty());
         EXPECT_FALSE(m.isDubbing);
-        EXPECT_EQ(Au3TrackList::Get(projectRef()).Size(), 0u);
     }
+    EXPECT_EQ(Au3TrackList::Get(projectRef()).Size(), 0u);
 }
 
 //! setLineRu: правка текста реплики отменяется и возвращается штатным undo.
