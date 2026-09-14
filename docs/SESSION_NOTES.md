@@ -383,6 +383,13 @@ Smoke-тест как в CI: `dist\bin\Audacity4.exe --plugin-registration-self-
 8. QRC-модуль QML: qmldir с `module Audacity.Dubbing` в qrc (prefix «/»),
    движок имеет «:/qml» в путях импорта (uiengine.cpp:77) — отдельная
    регистрация пути не нужна.
+9. Смук приложения — ТОЛЬКО из dist (после cmake --install): запуск
+   src/app/bin/Audacity4.exe из дерева сборки даёт предупреждение
+   «Critical Nyquist files could not be found. Nyquist effects will not
+   work.» (NyquistEffectsModule::Initialize ищет nyquist-runtime\nyquist.lsp
+   относительно exe, каталог деплоится только install). Окруженческое,
+   не регрессия: смок из dist — exit 0 без диалога. Зафиксировано
+   в roadmap §M0.
 
 **Расхождения с планом (формат AGENTS.md §9):** категория 1 (технические
 детали): имена файлов (опечатка плана linesslistmodel -> lineslistmodel);

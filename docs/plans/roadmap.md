@@ -69,6 +69,13 @@ powershell -NoProfile -Command "$root = 'd:/auda/audacity/build/audacity-release
 :: 4) Дистрибутив для ручной проверки (self-contained, с windeployqt)
 "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" --install build\audacity-release --prefix D:/auda/audacity/dist
 :: Проверка: dist\bin\Audacity4.exe --plugin-registration-self-test  (exit 0)
+:: ВАЖНО (выяснено в M3): смок — только из dist. Запуск src\app\bin\Audacity4.exe
+:: из дерева сборки даёт предупреждение «Critical Nyquist files could not be
+:: found. Nyquist effects will not work.»: NyquistEffectsModule::Initialize
+:: (au3-nyquist-effects/LoadNyquist.cpp:127-148) ищет nyquist-runtime\nyquist.lsp
+:: по путям относительно exe, а этот каталог деплоится только cmake --install.
+:: Это свойство окружения (не ошибка сборки): nyquist-эффекты отключаются,
+:: остальные модули и сам смок работают, exit 0.
 
 **Результат M0:** сборка успешна (3319 целей, `src/app/bin/Audacity4.exe`,
 PortAudio+ASIO из исходников по REBUILD-флагу). ctest после фикса тестов
