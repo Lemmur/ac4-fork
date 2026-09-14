@@ -86,19 +86,32 @@ Expected: false; плюс `removeIfExists` не может удалить защ
 **Muse-модуль:** `src/dubbing` (создаётся; `declare_module(dubbing)`;
 регистрация в [`src/app/appfactory.cpp`](../../src/app/appfactory.cpp)).
 
-**Затрагиваемые файлы/классы:**
-- Новые: `src/dubbing/dubbingmodule.*`, `dom/{gamefile,scene,line,take}.h`,
-  `idubbingproject.h`, `internal/dubbingproject.*`,
-  `internal/dubbingprojectfileioextension.*` (реализация
-  [`au3/libraries/au3-project-file-io/ProjectFileIOExtension.h`](../../au3/libraries/au3-project-file-io/ProjectFileIOExtension.h);
-  запись через `ProjectSerializer::WriteBlob` —
-  [`au3/libraries/au3-project-file-io/ProjectSerializer.h:61`](../../au3/libraries/au3-project-file-io/ProjectSerializer.h)),
-  `internal/dubbingstateextension.*` (`: UndoStateExtension` +
-  `UndoRedoExtensionRegistry::Entry` —
+**Затрагиваемые файлы/классы (фактически по итогам реализации):**
+- Новые: `src/dubbing/dubbingmodule.*` (IModuleSetup — линковка регистраций),
+  `src/dubbing/dubbingtypes.h` (домен: GameFile/Scene/Line/TakeInfo/статусы),
+  `src/dubbing/internal/dubbingproject.*` (attached-объект домена на
+  AudacityProject + XMLTagHandler + статические регистрации в
+  `ProjectFileIORegistry`), `src/dubbing/internal/dubbingstateextension.*`
+  (`: UndoStateExtension` + `UndoRedoExtensionRegistry::Entry` —
   [`au3/libraries/au3-project-history/UndoManager.h:84-131`](../../au3/libraries/au3-project-history/UndoManager.h)),
-  `internal/dubbingserializer.*` (версионированный blob),
-  `dubbingconfiguration.*` (настройки: паттерн WAV, порог сверки длительности),
-  `tests/dubbingdomain_tests.cpp`.
+  `src/dubbing/tests/{environment.cpp,dubbingdomain_tests.cpp}`.
+- **Уточнение механизма персистентности (по дословному разбору кода):**
+  вместо `ProjectFileIOExtension`+`WriteBlob` используется штатный реестр
+  документа проекта: `ProjectFileIORegistry = XMLMethodRegistry<AudacityProject>`
+  ([`au3/libraries/au3-project/Project.h:133-135`](../../au3/libraries/au3-project/Project.h));
+  `ObjectWriterEntry` пишет тег `<dubbing>` в корень `<project>` при каждом
+  Save/AutoSave (вызов из
+  [`au3/libraries/au3-project-file-io/ProjectFileIO.cpp:1862`](../../au3/libraries/au3-project-file-io/ProjectFileIO.cpp)),
+  `ObjectReaderEntry("dubbing", …)` читает его при LoadProject. OnUpdateSaved
+  у ProjectFileIOExtension вызывается ПОСЛЕ записи doc и для дописывания
+  данных непригоден; ProjectFileIOExtension в M1 не используется.
+- Расширения: [`src/project/types/projecttypes.h`](../../src/project/types/projecttypes.h)
+  (`ProjectCreateOptions.dubbing`), регистрация модуля в
+  [`src/app/appfactory.cpp`](../../src/app/appfactory.cpp) и
+  `src/app/CMakeLists.txt`, `src/CMakeLists.txt`, опция
+  `AU_BUILD_DUBBING_TESTS` в корневом [`CMakeLists.txt`](../../CMakeLists.txt).
+  IOC-интерфейс `idubbingproject.h` и настройки `dubbingconfiguration.*`
+  переносятся в M2 (появится первый потребитель — импорт/панель).
 - Расширения: [`src/project/types/projecttypes.h`](../../src/project/types/projecttypes.h)
   (`ProjectCreateOptions` + признак дубляжа),
   [`src/project/qml/Audacity/Project/NewProjectDialog.qml`](../../src/project/qml/Audacity/Project/NewProjectDialog.qml)
@@ -118,6 +131,13 @@ Expected: false; плюс `removeIfExists` не может удалить защ
 реплики → undo/redo восстанавливает текст → сохранить → переоткрыть файл на
 другой машине/пути → домен (дерево, тексты, статусы) идентичен; автосейв
 создаёт снимок с данными дубляжа.
+**Статус: ВЫПОЛНЕНО (2026-09-14, ветка feature/dubbing-m1-core).** Реальный
+прогон `dubbing_tests` — 3/3 OK: UndoRedo_RuText (штатный ProjectHistory +
+DubbingStateExtension), SaveAndReopen_DomainRoundTrip (save → load через
+Au3ProjectAccessor, домен идентичен, признак isDubbing сохранён),
+RegularProject_NotDubbing. Автосейв с данными дубляжа обеспечен тем же
+путём WriteXML (AutoSave вызывает WriteXML → CallWriters → наш тег).
+Диалог создания проекта с выбором типа — в M2 (вместе с IOC-сервисом).
 
 **Переиспользуется/расширяется/с нуля:** переиспользуются ProjectFileIO,
 ProjectFileIOExtension-механика, UndoStack-расширения; расширяются project

@@ -56,6 +56,7 @@
 #include "importexport/import/importermodule.h"
 #include "importexport/export/exportermodule.h"
 #include "importexport/labels/labelsmodule.h"
+#include "dubbing/dubbingmodule.h"
 #ifdef AU_BUILD_CLOUD_AUDIOCOM
 #include "au3cloud/au3cloudmodule.h"
 #else
@@ -183,6 +184,7 @@ std::shared_ptr<muse::IApplication> AppFactory::newGuiApp(const std::shared_ptr<
     app->addModule(new au::importexport::ExporterModule());
     app->addModule(new au::importexport::ImporterModule());
     app->addModule(new au::importexport::LabelsModule());
+    app->addModule(new au::dubbing::DubbingModule());
     app->addModule(new au::au3::Au3WrapModule());
     app->addModule(new au::au3cloud::Au3CloudModule());
     app->addModule(new au::effects::EffectsModule());

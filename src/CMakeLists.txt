@@ -69,6 +69,8 @@ endif()
 
 add_subdirectory(importexport)
 
+add_subdirectory(dubbing)
+
 add_subdirectory(uicomponents)
 
 # Stubs

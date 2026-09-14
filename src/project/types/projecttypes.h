@@ -47,6 +47,10 @@ struct ProjectCreateOptions
     QString copyright;
 
     muse::io::path_t templatePath;
+
+    //! Тип проекта «Дубляж» (RuDub Studio, AGENTS.md §6.1):
+    //! один проект = один файл игры, метаданные реплик — внутри .aup4
+    bool dubbing = false;
 };
 
 enum class SaveMode

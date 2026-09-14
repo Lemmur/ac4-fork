@@ -162,6 +162,7 @@ add_to_link_if_exists(record)
 add_to_link_if_exists(spectrogram)
 add_to_link_if_exists(usageinfo)
 add_to_link_if_exists(automation)
+add_to_link_if_exists(dubbing)
 
 set (AUDACITY_APPEND_SRC)
 
