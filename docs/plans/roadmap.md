@@ -45,18 +45,39 @@ State Machines, Qt 5 Compatibility), CMake ≥ 3.24, Ninja, MSVC 2022;
 конфигурация `audacity-debug` из [`CMakePresets.json`](../../CMakePresets.json);
 первая сборка; прогон существующего тестового набора.
 
-**Команда тестов (проверить и зафиксировать здесь по факту первого
-успешного прогона — AGENTS.md §9):**
+**Фактическая процедура (выполнена и зафиксирована 2026-09-14, AGENTS.md §9).**
+Окружение: VS 18 BuildTools MSVC 14.50.35717 (cl 19.50), CMake 4.2.3-msvc3 и
+Ninja из состава VS, Qt 6.10.1 msvc2022_64 (D:/Qt/6.10.1/msvc2022_64).
+Важно: пресет `audacity-debug` (Debug) на этой машине НЕ собирается — muse_deps
+использует prebuilt-пакеты только при RelWithDebInfo (дословно
+`muse_deps/buildtools/resolve.cmake:460-461`: `if(NOT mode STREQUAL "rebuild" AND config STREQUAL "RelWithDebInfo")`),
+а source-fallback падает на libpng (не находит ZLIB). Поэтому рабочий пресет —
+`audacity-release` (RelWithDebInfo, отладочные PDB на MSVC сохраняются).
 
 ```
-cmake --preset audacity-debug
-cmake --build --preset audacity-debug
-ctest --preset audacity-debug   ; фактическое имя пресета тестов уточнить в M0
+:: 1) Конфигурация (командная строка cmd из корня d:/auda/audacity)
+call "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+"C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" --preset audacity-release -DCMAKE_PREFIX_PATH=D:/Qt/6.10.1/msvc2022_64
+
+:: 2) Сборка
+"C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" --build build\audacity-release
+
+:: 3) Тесты (PATH обязателен: Qt + все _deps\*\bin + wxwidgets-DLL)
+powershell -NoProfile -Command "$root = 'd:/auda/audacity/build/audacity-release'; $bins = Get-ChildItem -Directory ($root + '/_deps') | ForEach-Object { Join-Path $_.FullName 'bin' } | Where-Object { Test-Path $_ }; $env:PATH = 'D:/Qt/6.10.1/msvc2022_64/bin;' + $root + '/_deps/wxwidgets/lib/vc_x64_dll;' + ($bins -join ';') + ';' + $env:PATH; & 'C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/ctest.exe' --test-dir $root --output-on-failure"
 ```
+
+**Результат M0:** сборка успешна (3319 целей, `src/app/bin/Audacity4.exe`,
+PortAudio+ASIO из исходников по REBUILD-флагу); ctest — **27/28 пройдено**.
+Заранее красный (окружение, не наши изменения): `au_project_tests`, кейс
+`Load_FileCannotBeOpened_ReturnsCantOpen` — тест создаёт read-protected файл
+и ждёт ошибку открытия; на этой машине файл открывается успешно
+(лог: `src/project/tests/audacityproject_tests.cpp:205` — Actual: true,
+Expected: false; плюс `removeIfExists` не может удалить защищённые файлы).
+Зафиксировано как известный красный тест апстрима на данной конфигурации.
 
 **Критерий готовности:** приложение собирается и запускается на целевой
 машине; ctest зелёный (или зафиксирован список заранее красных тестов
-апстрима); процедура записана в этот файл.
+апстрима); процедура записана в этот файл. **Статус: ВЫПОЛНЕНО.**
 
 ---
 
