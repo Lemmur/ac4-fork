@@ -9,7 +9,12 @@
 
 #include <wx/string.h>
 
+#include <algorithm>
+
 #include "au3-xml/XMLWriter.h"
+#include "au3-track/Track.h"
+#include "au3-wave-track/WaveTrack.h"
+#include "au3wrap/internal/domaccessor.h"
 
 using namespace au::dubbing;
 
@@ -231,6 +236,54 @@ XMLTagHandler* DubbingProject::HandleXMLChild(const std::string_view&)
 {
     // Все вложенные теги (<file>, <scene>, <line>, <take>) разбираем сами
     return this;
+}
+
+void DubbingProject::reconcileReferences(AudacityProject& project)
+{
+    DubbingMeta& meta = DubbingProject::Get(project).meta();
+    if (!meta.isDubbing) {
+        return;
+    }
+
+    auto& trackList = Au3TrackList::Get(project);
+
+    for (GameFile& file : meta.files) {
+        //! REF-дорожка файла — по сохранённому имени «REF <file_id>»
+        Au3WaveTrack* refTrack = nullptr;
+        const wxString wantedName = toWx("REF " + file.fileId);
+        for (auto track : trackList) {
+            if (track && track->GetName() == wantedName) {
+                refTrack = dynamic_cast<Au3WaveTrack*>(track);
+                break;
+            }
+        }
+
+        //! Клипы дорожки в порядке времени (порядок реплик с референсом)
+        std::vector<std::shared_ptr<Au3WaveClip> > clips;
+        if (refTrack) {
+            auto clipList = au::au3::DomAccessor::waveClipsAsList(refTrack);
+            clips.assign(clipList.begin(), clipList.end());
+            std::sort(clips.begin(), clips.end(),
+                      [](const auto& a, const auto& b) { return a->GetPlayStartTime() < b->GetPlayStartTime(); });
+        }
+
+        size_t clipIdx = 0;
+        for (Scene& scene : file.scenes) {
+            for (Line& line : scene.lines) {
+                if (line.refClipId == NO_CLIP_ID) {
+                    continue; //!< реплика без референса
+                }
+                if (clipIdx < clips.size()) {
+                    line.refTrackId = refTrack->GetId();
+                    line.refClipId = clips[clipIdx]->GetId();
+                    ++clipIdx;
+                } else {
+                    line.refTrackId = NO_TRACK_ID;
+                    line.refClipId = NO_CLIP_ID;
+                }
+            }
+        }
+    }
 }
 
 // ============================================================

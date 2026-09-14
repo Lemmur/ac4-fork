@@ -944,6 +944,42 @@ TEST_F(DubbingPanelTests, ManualCheck_CreateDemoProject)
     ASSERT_TRUE(m_accessor->save(muse::io::path_t(out.string())));
     ASSERT_TRUE(std::filesystem::exists(out));
 
+    //! Контроль переоткрытия: клипы и ключи (trackId/clipId) живы после
+    //! save/load — иначе «Референс» в рабочей зоне честно покажет -1
+    {
+        auto accessor2 = std::make_shared<Au3ProjectAccessor>(muse::modularity::globalCtx());
+        ASSERT_TRUE(accessor2->open().valid());
+        ASSERT_TRUE(accessor2->load(muse::io::path_t(out.string()), true).valid());
+
+        AudacityProject& reloaded = *reinterpret_cast<AudacityProject*>(accessor2->au3ProjectPtr());
+        DubbingMeta& meta2 = DubbingProject::Get(reloaded).meta();
+        Line* l1 = findLine(meta2, GUID_FIRST);
+        ASSERT_TRUE(l1);
+        ASSERT_NE(l1->refTrackId, NO_TRACK_ID);
+
+        //! TrackId не переживают save/load (au3 переназначает id) — до
+        //! reconcile сохранённый id указывает в никуда:
+        Au3WaveTrack* stale = DomAccessor::findWaveTrack(reloaded, Au3TrackId(l1->refTrackId));
+        bool staleClipFound = false;
+        if (stale) {
+            staleClipFound = DomAccessor::findWaveClip(stale, l1->refClipId) != nullptr;
+        }
+        EXPECT_FALSE(stale && staleClipFound) << "ожидали битую ссылку ДО reconcile";
+
+        //! reconcile (вызывается сервисом при открытии проекта): REF по
+        //! имени, клипы по порядку реплик с референсом
+        DubbingProject::reconcileReferences(reloaded);
+        Au3WaveTrack* refTrack = DomAccessor::findWaveTrack(reloaded, Au3TrackId(l1->refTrackId));
+        ASSERT_TRUE(refTrack) << "REF-дорожка не найдена после переоткрытия";
+        ASSERT_EQ(refTrack->Intervals().size(), 3u) << "клипы не пережили save/load";
+
+        auto clip = DomAccessor::findWaveClip(refTrack, l1->refClipId);
+        ASSERT_TRUE(clip) << "ClipKey (refTrackId/refClipId) не указывает на клип после load";
+        EXPECT_NEAR(clip->GetPlayStartTime(), 0.0, 1e-6);
+
+        accessor2->close();
+    }
+
     std::cout << "\n[MANUAL] Проект для ручной проверки M3: " << out.string() << "\n"
               << "[MANUAL] Открыть в dist\\bin\\Audacity4.exe -> Вид -> Реплики\n" << std::endl;
 }

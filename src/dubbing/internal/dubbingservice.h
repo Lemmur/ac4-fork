@@ -11,6 +11,7 @@
 #pragma once
 
 #include "modularity/ioc.h"
+#include "async/asyncable.h"
 
 #include "context/iglobalcontext.h"
 #include "trackedit/iprojecthistory.h"
@@ -22,7 +23,7 @@
 #include "../import/dubbingjsonreader.h"
 
 namespace au::dubbing {
-class DubbingService final : public IDubbingProject, public muse::Contextable
+class DubbingService final : public IDubbingProject, public muse::Contextable, public muse::async::Asyncable
 {
 public:
     explicit DubbingService(const muse::modularity::ContextPtr& ctx);
@@ -45,6 +46,13 @@ public:
 
 private:
     AudacityProject* currentAu3Project() const;
+
+    //! Разовая подписка на смену проекта: после загрузки .aup4 TrackId/ClipId
+    //! перегенерированы au3 — восстанавливаем ссылки домена (REF по имени,
+    //! клипы по порядку) и уведомляем панель.
+    void ensureDomainSubscribed();
+
+    bool m_domainSubscribed = false;
 
     //! Этапы импорта БЕЗ записи отмены: общий код самостоятельных методов
     //! (importFromJson / importWavFolder) и объединённого importProject;

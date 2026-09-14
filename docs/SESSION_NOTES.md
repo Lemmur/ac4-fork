@@ -483,4 +483,15 @@ clicked без параметров, checked сам НЕ переключает�
 (8) `model.rowCount` в QML — method-object («function () { [native
 code] }» в тексте) — для счётчика добавлено Q_PROPERTY count READ
 rowCount NOTIFY reloaded; (9) RowLayout не переносит детей — для
-тулбара в узкой панели использовать Flow.
+тулбара в узкой панели использовать Flow; (10) StyledDropdown НЕ
+запоминает выбор (только эмитит activated) — в onActivated явно
+`currentIndex = index`; (11) ГЛАВНОЕ: TrackId/ClipId НЕ переживают
+save/load — au3 перегенерирует id при загрузке, домен хранил «сырые»
+id сессии -> после открытия .aup4 у ВСЕХ реплик «нет референса»
+(выявлено ручной проверкой, воспроизведено тестом: REF-дорожка не
+находилась по сохранённому id). Лечение — reconcile при открытии
+(DubbingProject::reconcileReferences: REF-дорожка по имени «REF
+<file_id>», клипы по порядку реплик с референсом; вызывается
+DubbingService по currentProjectChanged + domainChanged). Учесть
+в M4+: после появления перемещения/удаления клипов порядок перестанет
+быть стабильным ключом — потребуется постоянный ключ клипа в домене.

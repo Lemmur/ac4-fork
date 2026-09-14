@@ -30,6 +30,27 @@ AudacityProject* DubbingService::currentAu3Project() const
     return reinterpret_cast<AudacityProject*>(project->au3ProjectPtr());
 }
 
+void DubbingService::ensureDomainSubscribed()
+{
+    if (m_domainSubscribed) {
+        return;
+    }
+    m_domainSubscribed = true;
+
+    //! После загрузки .aup4 au3 перегенерирует TrackId/ClipId: сохранённые
+    //! в домене ссылки указывают в никуда («нет референса» у всех).
+    //! Восстанавливаем маппинг (REF-дорожка по имени, клипы по порядку
+    //! реплик с референсом) и уведомляем панель.
+    if (auto ctx = globalContext()) {
+        ctx->currentProjectChanged().onNotify(this, [this] {
+            if (AudacityProject* prj = currentAu3Project()) {
+                DubbingProject::reconcileReferences(*prj);
+                m_domainChanged.notify();
+            }
+        });
+    }
+}
+
 JsonImportResult DubbingService::importFromJson(const muse::io::path_t& path)
 {
     JsonImportResult result;
@@ -178,6 +199,8 @@ ProjectImportResult DubbingService::importProject(const muse::io::path_t& jsonPa
 
 DubbingMeta DubbingService::domainSnapshot() const
 {
+    const_cast<DubbingService*>(this)->ensureDomainSubscribed();
+
     AudacityProject* prj = currentAu3Project();
     if (!prj) {
         return DubbingMeta{};
