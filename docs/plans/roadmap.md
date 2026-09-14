@@ -333,16 +333,35 @@ uicomponents, workspace; расширяются ProjectPage.qml/ProjectPageModel
    ОДИН pushHistoryState («Правка текста реплики») на правку; применяется
    по Enter/потере фокуса поля. Тест `PanelTextEdit_UndoRedo_ModelFollows`
    доказывает undo/redo и автоматическое обновление модели.
+9. Редизайн по требованию владельца (та же ветка): заголовок первого
+   уровня (файл игры) выбирается Select'ом НАД списком (`fileId`/
+   `fileIds()` модели, авто-выбор первого); сцены (quest_id) —
+   раскрывающиеся заголовки (`toggleScene`/`setAllScenesExpanded`,
+   первая сцена по умолчанию раскрыта, свёрнутость переживает
+   переключение файла — ключи файл+сцена); строка реплики компактная:
+   статус (цветной маркер) · спикер · EN над RU · длительность в конце
+   (подсвечивается при расхождении). Режим `filteringActive`: при любом
+   фильтре/поиске модель даёт плоский список ВСЕХ реплик выбранного
+   файла (включая свёрнутые секции), без заголовков — фильтры обязаны
+   видеть содержимое свёрнутых сцен; сброс фильтров возвращает
+   иерархию (syncFilteringMode в QML). Замеры после редизайна (один
+   файл, 30 000 реплик / 600 сцен): построение свёрнутой раскладки —
+   10.6 мс, раскрытие всех секций (30 600 строк) — 55.7 мс, фильтр
+   UNKNOWN — 16.9 мс (6 000), поиск — 6.0 мс, 10 вьюпорт-страниц по 50
+   строк — 1.25 мс, 100 000 x rowCount() — 3.2 мс.
 
 **Статус: ВЫПОЛНЕНО (2026-09-14, ветка feature/dubbing-m3-panel).**
-Реальный прогон `dubbing_tests` — 17/17 OK (3 M1 + 7 M2 + 7 M3:
-ModelBuild_RolesAndOrder, Filters_UnknownStatusMismatchNoReference,
-Search_FullText, Virtualization_30k_Performance,
-OpenLine_SelectsClipAndSeeks, PanelTextEdit_UndoRedo_ModelFollows,
-ActualDur_SavedAndReloaded). Полный ctest — 29/29 (100%).
-Смок-тест приложения (`--plugin-registration-self-test`) — exit 0.
-Ручная проверка UI (открытие панели, скролл реальных 30k в QML,
-drag-докинг) — по инструкции из отчёта сессии.
+Реальный прогон `dubbing_tests` — 19/19 OK (3 M1 + 7 M2 + 9 M3:
+ModelBuild_RolesAndOrder, Hierarchy_FileSelectAndSections,
+Filters_UnknownStatusMismatchNoReference, Search_FullText,
+Virtualization_30k_Performance, OpenLine_SelectsClipAndSeeks,
+PanelTextEdit_UndoRedo_ModelFollows, ActualDur_SavedAndReloaded,
+ManualCheck_CreateDemoProject — генератор .aup4 для ручной проверки).
+Полный ctest — 29/29 (100%). Смок приложения из dist
+(`--plugin-registration-self-test`) — exit 0 (см. §M0: из build-дерева
+будет предупреждение Nyquist — окруженческое). Ручная проверка UI —
+по инструкции из SESSION_NOTES (демо-проект manual_check/.
+m3_dubbing_demo.aup4).
 
 ## M4. Запись: циклические тейки, locked-референс, мастер (§6.4)
 
