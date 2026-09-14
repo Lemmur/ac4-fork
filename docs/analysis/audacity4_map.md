@@ -1,7 +1,11 @@
 # Анализ кодовой базы Audacity 4.0 (форк RuDub Studio)
 
-Дата: 2026-09-14
-Статус: ШАГ 1 (АНАЛИЗ). Архитектура и план по модулям — отдельно, после согласования.
+Дата: 2026-09-14, ревизия 2 (закрыты замечания 1–3 к первой версии)
+Статус: ШАГ 1 (АНАЛИЗ) принят как база. Замечания закрыты: §5 — схема регистрации
+эффектов переснята дословно с учётом ревампа audio plugins; §7 — добавлены дословные
+цитаты CMakeLists о несобираемости au3/src и au3-menus; §0 — точный путь фреймворка
+подтверждён цитатой из корневого CMakeLists. ШАГ 2 — docs/plans/architecture.md,
+ШАГ 3 — docs/plans/roadmap.md.
 База: тег Audacity-4.0.0, рабочая копия `d:/auda/audacity`.
 
 ---
@@ -37,6 +41,21 @@ flowchart TD
 | `muse_deps/` | Рецепты и прекомпилированные зависимости (PortAudio, ASIO SDK и др.) | [`muse_deps/prebuilt.lock`](../../muse_deps/prebuilt.lock) |
 
 Ключевой файл сборки: [`CMakeLists.txt`](../../CMakeLists.txt) — в дерево сборки входят только `muse/framework`, `src`, `share`; au3 подключается изнутри [`src/au3wrap/CMakeLists.txt`](../../src/au3wrap/CMakeLists.txt).
+
+**Точный путь фреймворка в рабочей копии — `muse/framework`** (не `muse_framework`). Дословно из корневого [`CMakeLists.txt:24-25`](../../CMakeLists.txt):
+
+```cmake
+set(MUSE_FRAMEWORK_PATH ${CMAKE_SOURCE_DIR}/muse)
+set(MUSE_FRAMEWORK_SRC_PATH ${MUSE_FRAMEWORK_PATH}/framework)
+```
+
+и дословно [`CMakeLists.txt:205-207`](../../CMakeLists.txt) — полное дерево сборки:
+
+```cmake
+add_subdirectory(${MUSE_FRAMEWORK_SRC_PATH})
+add_subdirectory(src)
+add_subdirectory(share)
+```
 
 ---
 
@@ -99,16 +118,155 @@ Undo/Redo: [`src/trackedit/iprojecthistory.h`](../../src/trackedit/iprojecthisto
 
 ---
 
-## 5. Эффекты: две точки входа (ядро au3 + обёртка Au4)
+## 5. Эффекты: дословная схема регистрации на теге Audacity-4.0.0 (ревизия 2)
 
-Схема встроенного эффекта в 4.0:
+### 5.1 Ядро механизма — `BuiltinEffectsModule::Registration<T>`
 
-1. **Ядро обработки** — класс в духе [`au3/libraries/au3-builtin-effects/SilenceBase.cpp`](../../au3/libraries/au3-builtin-effects/SilenceBase.cpp): наследник `StatefulPerTrackEffect`/`StatelessPerTrackEffect`/`Generator` (из [`au3/libraries/au3-effects/`](../../au3/libraries/au3-effects)), символ `ComponentInterfaceSymbol`, метод `ProcessBlock`/`ProcessTrail`.
-2. **Регистрация** — `BuiltinEffectsModule::Registration< T >` (механизм: [`au3/libraries/au3-effects/LoadEffects.h:39-47`](../../au3/libraries/au3-effects/LoadEffects.h)). В Au4 регистрации собраны в [`src/effects/builtin_collection/internal/builtincollectionloader.cpp:80-100+`](../../src/effects/builtin_collection/internal/builtincollectionloader.cpp) (`preInit(): static BuiltinEffectsModule::Registration< FadeInEffect > regFadeIn; ...`).
-3. **UI** — QML-представление + view-модель: минимальный полный пример — Fade: ядро [`src/effects/builtin_collection/fade/fadeeffect.cpp`](../../src/effects/builtin_collection/fade/fadeeffect.cpp) (неинтерактивный, без QML) и интерактивный образец — [`src/effects/builtin_collection/amplify/`](../../src/effects/builtin_collection/amplify) (`amplifyeffect.*` + `AmplifyView.qml` + `amplifyviewmodel.*`).
-4. **Загрузчик эффектов Au4**: [`src/effects/builtin/builtineffectsmodule.cpp`](../../src/effects/builtin/builtineffectsmodule.cpp) регистрирует сканер/метаридер/лоадер в muse audioplugins; выполнение — `src/effects/effects_base` (`IEffectsProvider`, `IEffectExecutionScenario`).
+Дословно из [`au3/libraries/au3-effects/LoadEffects.h:29-47`](../../au3/libraries/au3-effects/LoadEffects.h):
 
-Внимание: каталог `src/effects` (Au4) — это **инфраструктура и UI эффектов**, а не место ядра обработки. Ядра встроенных эффектов лежат в `au3/libraries/au3-builtin-effects` (+ обёртки в `src/effects/builtin_collection`). VST3/Nyquist/LV2 — отдельные модули (`src/effects/vst` и т.д.). Для нового эффекта дубляжа разумно: ядро как класс au3-стиля + регистрация + QML-вью в новом модуле (по образцу `builtin_collection`).
+```cpp
+class EFFECTS_API BuiltinEffectsModule final : public PluginProvider
+{
+public:
+    BuiltinEffectsModule();
+    virtual ~BuiltinEffectsModule();
+
+    using Factory = std::function< std::unique_ptr<Effect>() >;
+
+    // Typically you make a static object of this type in the .cpp file that
+    // also implements the Effect subclass.
+    template< typename Subclass >
+    struct Registration final {
+        Registration(bool excluded = false)
+        {
+            DoRegistration(
+                Subclass::Symbol, []{ return std::make_unique< Subclass >(); },
+                excluded);
+        }
+    };
+```
+
+Все регистрации встроенных эффектов Au4 собраны в одном месте — [`src/effects/builtin_collection/internal/builtincollectionloader.cpp:80-91`](../../src/effects/builtin_collection/internal/builtincollectionloader.cpp). Дословно (начало):
+
+```cpp
+void BuiltinCollectionLoader::preInit()
+{
+    static BuiltinEffectsModule::Registration< FadeInEffect > regFadeIn;
+    static BuiltinEffectsModule::Registration< FadeOutEffect > regFadeOut;
+    static BuiltinEffectsModule::Registration< InvertEffect > regInvert;
+    static BuiltinEffectsModule::Registration< Repair > regRepair;
+    static BuiltinEffectsModule::Registration< ReverseEffect > regReverse;
+    static BuiltinEffectsModule::Registration< TruncateSilenceEffect > regTruncateSilence;
+#if USE_SOUNDTOUCH
+    static BuiltinEffectsModule::Registration< ChangePitchEffect > regChangePitch;
+#endif
+    static BuiltinEffectsModule::Registration< AmplifyEffect > regAmplify;
+```
+
+Вызов `preInit()` — из модуля коллекции, дословно [`src/effects/builtin_collection/builtineffectscollectionmodule.cpp:44-51`](../../src/effects/builtin_collection/builtineffectscollectionmodule.cpp):
+
+```cpp
+void BuiltinEffectsCollectionModule::onPreInit(const muse::IApplication::RunMode&)
+{
+    //! NOTE preInit() only creates static Registration objects (doesn't use `this`).
+    //! Must run at module level before Au3WrapModule::onInit() sets sInitialized = true.
+    BuiltinCollectionLoader::preInit();
+
+    m_builtinCollectionLoader = std::make_unique<BuiltinCollectionLoader>(muse::modularity::globalCtx());
+}
+```
+
+### 5.2 Ревамп audio plugins: встраивание в реестры muse
+
+После ревампа встроенные эффекты — полноценные участники единого конвейера плагинов muse. Модуль `effects_builtin` регистрирует сканер, метаридер и лоадер в три реестра. Дословно [`src/effects/builtin/builtineffectsmodule.cpp:41-57`](../../src/effects/builtin/builtineffectsmodule.cpp):
+
+```cpp
+void BuiltinEffectsModule::resolveImports()
+{
+    const auto scannerRegister = globalIoc()->resolve<muse::audioplugins::IAudioPluginsScannerRegister>(moduleName());
+    if (scannerRegister) {
+        scannerRegister->registerScanner(m_pluginsScanner);
+    }
+
+    const auto metaReaderRegister = globalIoc()->resolve<muse::audioplugins::IAudioPluginMetaReaderRegister>(moduleName());
+    if (metaReaderRegister) {
+        metaReaderRegister->registerReader(m_metaReader);
+    }
+
+    auto loadersRegister = globalIoc()->resolve<IEffectLoadersRegister>(moduleName());
+    if (loadersRegister) {
+        loadersRegister->registerLoader(m_effectLoader);
+    }
+}
+```
+
+Сканер/метаридер уходят в `muse/framework/audioplugins` (реестры `IAudioPluginsScannerRegister`, `IAudioPluginMetaReaderRegister`), лоадер — в `IEffectLoadersRegister` из `src/effects/effects_base`. Программное выполнение зарегистрированного эффекта (нужно для 6.10) — [`src/effects/effects_base/ieffectexecutionscenario.h:23-24`](../../src/effects/effects_base/ieffectexecutionscenario.h):
+
+```cpp
+virtual muse::Ret performEffect(const EffectId& effectId) = 0;
+virtual muse::Ret performEffect(const EffectId& effectId, const std::string& params) = 0;
+```
+
+### 5.3 Минимальный живой пример без UI — Fade
+
+Ядро целиком в [`src/effects/builtin_collection/fade/`](../../src/effects/builtin_collection/fade): `FadeEffectBase : StatefulPerTrackEffect` с `ProcessBlock` и статическим символом ([fadeeffect.h:6,32-35](../../src/effects/builtin_collection/fade/fadeeffect.h)). Дословно определение символа ([fadeeffect.cpp:64](../../src/effects/builtin_collection/fade/fadeeffect.cpp)):
+
+```cpp
+const ComponentInterfaceSymbol FadeInEffect::Symbol { TranslatableString("effects-fade", "Fade In") };
+```
+
+Регистрация — одна строка из §5.1 (`regFadeIn`). QML не требуется: `IsInteractive()` возвращает `false`, view-URL не регистрируется.
+
+### 5.4 Минимальный живой пример с QML — Amplify
+
+- Ядро: `AmplifyEffect : StatefulPerTrackEffect`, [`src/effects/builtin_collection/amplify/amplifyeffect.h:11`](../../src/effects/builtin_collection/amplify/amplifyeffect.h), с блоком свойств «fot view» (`inputPeak`, `amp`, `newPeak`, `canClip`, `isApplyAllowed`) и `static const ComponentInterfaceSymbol Symbol`.
+- View-модель: `AmplifyViewModel : BuiltinEffectModel` и фабрика — дословно [`src/effects/builtin_collection/amplify/amplifyviewmodel.h:75-77`](../../src/effects/builtin_collection/amplify/amplifyviewmodel.h):
+
+```cpp
+class AmplifyViewModelFactory : public EffectViewModelFactory<AmplifyViewModel>
+{
+};
+```
+
+- QML: [`src/effects/builtin_collection/amplify/AmplifyView.qml:7,17-18`](../../src/effects/builtin_collection/amplify/AmplifyView.qml) — дословно:
+
+```qml
+BuiltinEffectBase {
+    id: root
+    ...
+    builtinEffectModel: AmplifyViewModelFactory.createModel(root, root.instanceId)
+    property alias amplify: root.builtinEffectModel
+```
+
+- Привязка QML к символу эффекта — в `BuiltinCollectionLoader::init()`, дословно [`builtincollectionloader.cpp:114-119`](../../src/effects/builtin_collection/internal/builtincollectionloader.cpp):
+
+```cpp
+auto regView = [this](const ::ComponentInterfaceSymbol& symbol, const muse::String& url) {
+    builtinEffectsViewRegister()->regUrl(au3::wxToString(symbol.Internal()), url);
+};
+
+REGISTER_AUDACITY_EFFECTS_SINGLETON_TYPE(AmplifyViewModelFactory);
+regView(AmplifyEffect::Symbol, u"qrc:/amplify/AmplifyView.qml");
+```
+
+Показ view — через лаунчер, дословно [`builtineffectscollectionmodule.cpp:76-82`](../../src/effects/builtin_collection/builtineffectscollectionmodule.cpp):
+
+```cpp
+void BuiltinEffectsCollectionContext::resolveImports()
+{
+    auto lr = ioc()->resolve<IEffectViewLaunchRegister>(mname);
+    if (lr) {
+        lr->regLauncher(EffectFamily::Builtin, std::make_shared<BuiltinViewLauncher>(iocContext()));
+    }
+}
+```
+
+### 5.5 Разделение кода эффектов
+
+- `au3/libraries/au3-builtin-effects` — переносимые базовые классы `*Base` (`SilenceBase`, `ChangePitchBase`, `SBSMSBase`, `SoundTouchBase`, `FindClippingBase`, `ToneGenBase`, `TruncSilenceBase` и др.).
+- `src/effects/builtin_collection/<имя>/` — итоговые классы эффектов Au4 (+ viewmodel + QML); часть эффектов (fade, amplify) реализована здесь целиком, без Base-класса.
+- VST3/Nyquist/LV2/AudioUnit — отдельные модули (`src/effects/vst` и т.д.).
+- Рецепт нового эффекта дубляжа: ядро-класс au3-стиля + статическая `Registration<T>` в `preInit()` своего лоадера + QML-view через `regUrl` — по образцу §5.3 (без UI) или §5.4 (с UI).
 
 Растяжение времени без изменения тона: SBSMS и SoundTouch включены (`AU_USE_SBSMS`, `AU_USE_SOUNDTOUCH`, [`CMakeLists.txt:100-101`](../../CMakeLists.txt)); эффекты ChangePitch/ChangeTempo/SlidingStretch (`src/effects/builtin_collection/slidingstretch/`), у клипа есть `speed`/`stretchToMatchTempo` — основа для «Подогнать под референс».
 
@@ -123,10 +281,54 @@ Undo/Redo: [`src/trackedit/iprojecthistory.h`](../../src/trackedit/iprojecthisto
 
 ---
 
-## 7. CommandManager и Macros в 4.0: НЕ АКТУАЛЬНЫ
+## 7. CommandManager и Macros в 4.0: НЕ АКТУАЛЬНЫ — дословные доказательства из CMakeLists
 
-- `CommandManager` (au3) существует в коде ([`au3/libraries/au3-menus/CommandManager.h`](../../au3/libraries/au3-menus/CommandManager.h)), но библиотека `au3-menus` **не входит в сборку AU4** — закомментирована «not yet used in AU4» ([`au3/libraries/CMakeLists.txt:79`](../../au3/libraries/CMakeLists.txt)).
-- Macros/Batch: `MacroCommands`/`BatchCommands` живут в [`au3/src/BatchCommands.h`](../../au3/src/BatchCommands.h) — легаси wx-приложения, которое **не собирается** (в AU4 нет ни UI, ни движка макросов; в `src/` слово «macro» не встречается).
+**а) корневая сборка не включает `au3/` вообще** — в дереве только фреймворк, src и share. Дословно [`CMakeLists.txt:205-207`](../../CMakeLists.txt):
+
+```cmake
+add_subdirectory(${MUSE_FRAMEWORK_SRC_PATH})
+add_subdirectory(src)
+add_subdirectory(share)
+```
+
+**б) au3 попадает в сборку AU4 только через au3wrap, и только `libraries` + `modules/import-export`.** Дословно [`src/au3wrap/au3wrapDefs.cmake:22-23`](../../src/au3wrap/au3wrapDefs.cmake):
+
+```cmake
+set(AU3_LIBRARIES ${AUDACITY_ROOT}/libraries)
+set(AU3_MODULES ${AUDACITY_ROOT}/modules)
+```
+
+и дословно [`src/au3wrap/CMakeLists.txt:84-89`](../../src/au3wrap/CMakeLists.txt):
+
+```cmake
+# Include AU3 libraries - this will add all library subdirectories
+# and set AU3_LIBRARIES_LIST in this scope
+add_subdirectory(${AU3_LIBRARIES} au3-libraries)
+
+# AU3 import/export format plugins (per-format static libraries)
+add_subdirectory(${AU3_MODULES}/import-export au3-import-export-modules)
+```
+
+Каталог `au3/src` (где живут [`au3/src/BatchCommands.h`](../../au3/src/BatchCommands.h) с `BatchCommands`/`MacroCommands`) не упоминается ни в одном `add_subdirectory` сборки AU4. Его собственный CMakeLists объявляет отдельный исполняемый target легаси-приложения — дословно [`au3/src/CMakeLists.txt:5-15`](../../au3/src/CMakeLists.txt):
+
+```cmake
+set( TARGET Audacity )
+set( TARGET_ROOT ${topdir}/src )
+...
+add_executable( ${TARGET} )
+```
+
+**в) `au3-menus` (CommandManager) исключён из списка библиотек.** Дословно [`au3/libraries/CMakeLists.txt:78-80`](../../au3/libraries/CMakeLists.txt) — внутри упорядоченного списка `LIBRARIES`:
+
+```cmake
+   au3-stretching-sequence
+#   au3-menus
+#   au3-note-track # not yet used in AU4
+```
+
+(соседние исключённые строки помечены «not yet used in AU4», сама `au3-menus` — просто закомментирована).
+
+**Следствия:** CommandManager, Macros/BatchCommands в AU4 недоступны и не могут быть «расширены своим шагом». Фактическая система команд Au4 — muse actions (`IActionsDispatcher`, `UiActionList`/`IUiActionsModule` + `framework/shortcuts`); движок пакетной обработки пишется с нуля (muse `framework/network` включён, `AU_USE_LIBCURL=OFF` по умолчанию, `QT_QPROCESS_SUPPORTED` — корневой [`CMakeLists.txt:167`](../../CMakeLists.txt)).
 - Фактическая система команд Au4 — muse actions: `IActionsDispatcher`, `UiActionList`/`IUiActionsModule` + `framework/shortcuts` для хоткеев. Расширять «Macros своим шагом (внешний процесс/сетевой API)» нечем — **движок пакетной обработки пишется с нуля** (собственная очередь заданий + QProcess/QNetworkAccessManager; muse `framework/network` уже включён, `AU_USE_LIBCURL=OFF` по умолчанию).
 
 ---

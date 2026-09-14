@@ -30,3 +30,113 @@
 3. ШАГ 3: `docs/plans/roadmap.md` — модули, риски, критерии готовности.
 
 **Открытые вопросы:** см. раздел 11 `docs/analysis/audacity4_map.md`.
+
+---
+
+## Сессия 2026-09-14 (вторая) — ШАГ 2 + ШАГ 3: архитектура и roadmap
+
+**Сделано:**
+- Прочитан AGENTS.md v2 целиком; ответы на вопросы Шага 1 из него учтены
+  (паттерн `{guid}.wav`, JSON-структура — sample.json подтверждён, тейки =
+  отдельные дорожки, провайдеры voice/LLM настраиваемые, очистка = внешний
+  Python-процесс, референсы внутри .aup3, Qt 6.10 MSVC 2022).
+- Закрыты три замечания к map-файлу (ревизия 2):
+  1) §5 переснят дословно: `BuiltinEffectsModule::Registration<T>`
+     (LoadEffects.h:29-47) + preInit-регистрации (builtincollectionloader.cpp:80+)
+     + ревамп audioplugins (builtineffectsmodule.cpp resolveImports →
+     IAudioPluginsScannerRegister / IAudioPluginMetaReaderRegister /
+     IEffectLoadersRegister) + минимальные живые примеры fade (без UI) и
+     amplify (QML: AmplifyViewModelFactory.createModel + regUrl);
+  2) §7: дословные цитаты CMakeLists — корень добавляет только
+     muse/framework + src + share (CMakeLists.txt:205-207); au3wrapDefs.cmake:22-23
+     (AU3_LIBRARIES=au3/libraries, AU3_MODULES=au3/modules); au3wrap добавляет
+     только libraries и modules/import-export (CMakeLists.txt:86,89);
+     au3/src target Audacity (au3/src/CMakeLists.txt:5-15) вне сборки;
+     au3-menus закомментирован (au3/libraries/CMakeLists.txt:79);
+  3) путь фреймворка: muse/framework (CMakeLists.txt:24-25), не muse_framework.
+- Создан `docs/plans/architecture.md` (ШАГ 2): по каждому пункту §6 —
+  механизм, файлы/классы, отмена; 5 новых muse-модулей (dubbing,
+  dubbing_text, dubbing_cleanup, dubbing_voice, dubbing_jobs) + расширения
+  существующих; точка регистрации панелей ProjectPage.qml panels;
+  оценка размера .aup3 (10k реплик ≈ 14 ГБ, порог внешних ссылок 15 ГБ /
+  2–3 мин сохранения).
+- Создан `docs/plans/roadmap.md` (ШАГ 3): M0 (сборка+тесты, команда ctest
+  фиксируется по факту) + M1–M12 (1 модуль = 1 PR): для каждого файлы/классы,
+  механизм отмены, сложность/риски, критерий готовности, переиспользование;
+  раздел «Отложено: WEM»; явные вопросы.
+
+**Ключевые новые установленные факты (добавлены в этой сессии):**
+- Механизм отмены для метаданных дубляжа: `UndoStateExtension` +
+  `UndoRedoExtensionRegistry::Entry<T>` (au3-project-history/UndoManager.h:84-131),
+  вызов через `IProjectHistory::modifyState(typeid(...))`
+  (src/trackedit/iprojecthistory.h:44-51) — параллельный undo не нужен.
+- Запись blob данных дубляжа: `ProjectSerializer::WriteBlob`
+  (au3-project-file-io/ProjectSerializer.h:61) в `OnUpdateSaved`
+  ProjectFileIOExtension.
+- Программный вызов штатных эффектов (для 6.10):
+  `IEffectExecutionScenario::performEffect(effectId, params)`
+  (src/effects/effects_base/ieffectexecutionscenario.h:23-24).
+- AU4 сохраняет новые проекты как .aup4 (projecttypes.h:297-299:
+  AUP3/AUP4/AUP4UNSAVED) — контейнер тот же SQLite; вынесен вопрос №1.
+- Панели: DockPanel в ProjectPage.qml `panels: [...]`, имя через
+  ProjectPageModel::*PanelName() (projectpagemodel.h:44-46), открытие
+  действием dock-set-open.
+- Импорт: `Au3Importer::importIntoTrack(filePath, dstTrackId, startTime)`
+  (au3importer.h:35); экспорт: `IExporter::exportData`
+  (iexporter.h:43-44).
+
+**Принятые решения и почему:**
+- 5 muse-модулей вместо одного src/dubbing: изоляция AI-сервисов от ядра
+  (правила Muse: модуль = домен), плюс PR-и инкрементальность; «1 модуль =
+  1 PR» трактуется как пакет работ roadmap'а (несколько PR могут
+  расширять один muse-модуль) — явно оговорено в обоих документах.
+- Тейки = отдельные дорожки через newMonoTrack + контроллер дубляжа
+  (штатный punch/loop отклонён пользователем в §4.3).
+- Locked-референс: флаг в track.h + гвард в trackeditinteraction (своего
+  флага в Au4 нет — подтверждено).
+
+**Осталось / следующая сессия:**
+1. Ответы на вопросы roadmap §4 (aup4 vs aup3; порог 15 ГБ; порядок
+   M9–M11; тип лимита voice-сервиса; движки очистки; снятие запрета на код).
+2. После явного разрешения — M0 (сборка на машине, фиксация команды
+   тестов) и M1 (ветка/PR ядра домена).
+
+**Открытые вопросы:** `docs/plans/roadmap.md` §4 (6 вопросов).
+
+### Доработка той же сессии (по двум уточнениям пользователя)
+
+- Получен реальный масштаб: 39 481 реплика / 2 181 сцена / 42 файла игры.
+- Пересчитана оценка размера (architecture.md §14, roadmap.md §2):
+  формула `V = N × (T̄ref×Bref + Ktake×Ttake×Btake + T̄master×Bmaster)`;
+  допущения: 48 кГц моно, референсы 24-bit (0.144 МБ/с, T̄=2.1 c по
+  sample.json), тейки 32-float (0.192 МБ/с, 2 шт × 2.3 c), мастер 24-bit;
+  ≈1.49 МБ/реплику → монолит всей игры ≈ 58.7 ГБ — порог 15 ГБ превышен
+  почти в 4 раза → монолит отклонён; рекомендована стратегия «один
+  дубляж-проект = один файл игры» (42 проекта, средний ≈1.4 ГБ, максимум
+  по оценке ≈7.4 ГБ), порог 15 ГБ/файл остаётся жёстким лимитом, внешние
+  ссылки — только резерв. Кэш voice и временные файлы очистки — вне .aup3.
+- Вопросы roadmap §4 переписаны полностью (6 шт.) с рекомендациями,
+  включая полный разбор .aup4 vs .aup3 (рекомендация .aup4: штатный путь
+  AU4, контейнер тот же SQLite).
+- Код по-прежнему не пишется; ожидается согласование roadmap (вопрос №6).
+
+---
+
+## Сессия 2026-09-14 (третья) — согласование roadmap, старт M0/M1
+
+**Сделано:**
+- Пользователь согласовал architecture.md и roadmap.md. Решения (занесены
+  в roadmap.md §4 «Решения»): расширение .aup4; один дубляж-проект = один
+  файл игры (42 проекта), порог 15 ГБ/файл жёсткий, внешние ссылки —
+  резерв; порядок M9→M10→M11→M12; бюджет voice-сервиса — абстрактные
+  единицы расхода (по умолчанию символы), API не фиксировать до M11;
+  очистка DeepFilterNet (мощный) + RNNoise (слабый), Python venv вручную.
+- Запрет на код (AGENTS.md §2 п.6) снят ЧАСТИЧНО: разрешены только
+  M0 (сборка + фиксация команды ctest) и M1 (ядро домена, отдельная
+  ветка). Остальные модули — только после отдельного согласования.
+
+**Далее:** M0 — проверить окружение, конфигурация/сборка audacity-debug,
+прогон ctest, фиксация фактической команды в roadmap.md; затем M1 — ветка,
+каркас src/dubbing, персистентность, тип проекта, тест, пакет
+доказательств по AGENTS.md §9 (git diff --stat, лог сборки, лог теста,
+git log, инструкция ручной проверки).
