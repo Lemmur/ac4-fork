@@ -1,0 +1,20 @@
+{
+    "f_mini": {
+        "q_mini_scene": {
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA": {
+                "en": "Line without speaker",
+                "ru": "Реплика без спикера",
+                "speaker_name": "",
+                "speaker_internal": "Character.Test.NoName",
+                "dur": 1.5
+            },
+            "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB": {
+                "en": "Named line",
+                "ru": "Именованная реплика",
+                "speaker_name": "Tester",
+                "speaker_internal": "Character.Test.Tester",
+                "dur": 0.8
+            }
+        }
+    }
+}
