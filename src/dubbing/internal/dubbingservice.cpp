@@ -40,12 +40,28 @@ JsonImportResult DubbingService::importFromJson(const muse::io::path_t& path)
         return result;
     }
 
-    std::vector<GameFile> parsed;
-    if (!m_jsonReader.read(path, parsed, result.errors)) {
-        return result;
+    doImportJson(*prj, path, result);
+
+    //! Одна запись отмены на пакет; метаданные снимет DubbingStateExtension (M1).
+    if (result.linesAdded > 0) {
+        projectHistory()->pushHistoryState("Импорт метаданных дубляжа", "Импорт дубляжа",
+                                            trackedit::UndoPushType::CONSOLIDATE);
+        m_domainChanged.notify();
     }
 
-    DubbingMeta& meta = DubbingProject::Get(*prj).meta();
+    return result;
+}
+
+//! Этап JSON без записи отмены: разбор + инкрементальное слияние в домен
+//! (общий код importFromJson и importProject; push делает вызывающий).
+void DubbingService::doImportJson(AudacityProject& prj, const muse::io::path_t& path, JsonImportResult& result)
+{
+    std::vector<GameFile> parsed;
+    if (!m_jsonReader.read(path, parsed, result.errors)) {
+        return;
+    }
+
+    DubbingMeta& meta = DubbingProject::Get(prj).meta();
 
     //! Инкрементальность по guid (решение M1): существующие реплики не трогаем
     //! вообще — ни тексты, ни статусы, ни ссылки; добавляем только новые
@@ -95,15 +111,7 @@ JsonImportResult DubbingService::importFromJson(const muse::io::path_t& path)
     }
     result.filesTotal = static_cast<int>(meta.files.size());
 
-    //! Одна запись отмены на пакет; метаданные снимет DubbingStateExtension (M1).
-    if (result.linesAdded > 0) {
-        projectHistory()->pushHistoryState("Импорт метаданных дубляжа", "Импорт дубляжа",
-                                            trackedit::UndoPushType::CONSOLIDATE);
-        m_domainChanged.notify();
-    }
-
     result.ok = true;
-    return result;
 }
 
 WavImportResult DubbingService::importWavFolder(const muse::io::path_t& folder)
@@ -116,12 +124,50 @@ WavImportResult DubbingService::importWavFolder(const muse::io::path_t& folder)
         return result;
     }
 
-    DubbingMeta& meta = DubbingProject::Get(*prj).meta();
-    result = m_importService.importWav(*prj, meta, folder);
+    doImportWav(*prj, folder, result);
 
     //! ОДИН pushHistoryState на пакет (UndoPush::CONSOLIDATE, au3 UndoManager.h:153-157):
     //! дорожки/клипы снимает штатный PushState, метаданные — DubbingStateExtension.
     if (result.importedCount > 0) {
+        projectHistory()->pushHistoryState("Импорт дубляжа", "Импорт дубляжа",
+                                            trackedit::UndoPushType::CONSOLIDATE);
+        m_domainChanged.notify();
+    }
+
+    return result;
+}
+
+//! Этап WAV без записи отмены: массовый импорт референсов в REF-дорожки
+//! (общий код importWavFolder и importProject; push делает вызывающий).
+void DubbingService::doImportWav(AudacityProject& prj, const muse::io::path_t& folder, WavImportResult& result)
+{
+    DubbingMeta& meta = DubbingProject::Get(prj).meta();
+    result = m_importService.importWav(prj, meta, folder);
+}
+
+ProjectImportResult DubbingService::importProject(const muse::io::path_t& jsonPath,
+                                                  const muse::io::path_t& wavFolder)
+{
+    ProjectImportResult result;
+
+    AudacityProject* prj = currentAu3Project();
+    if (!prj) {
+        result.json.errors.push_back("нет открытого проекта");
+        return result;
+    }
+
+    //! Полный импорт одним undo-шагом: этапы JSON -> WAV выполняются БЕЗ
+    //! промежуточной записи отмены — ограничений со стороны au3 нет,
+    //! PushState зовёт вызывающий (UndoManager.cpp:237-265).
+    doImportJson(*prj, jsonPath, result.json);
+    if (result.json.ok) {
+        doImportWav(*prj, wavFolder, result.wav);
+    }
+    result.ok = result.json.ok && result.wav.ok;
+
+    //! ЕДИНАЯ запись отмены на весь импорт: дорожки/клипы снимает штатный
+    //! PushState (UndoPush::CONSOLIDATE), метаданные — DubbingStateExtension.
+    if (result.json.linesAdded > 0 || result.wav.importedCount > 0) {
         projectHistory()->pushHistoryState("Импорт дубляжа", "Импорт дубляжа",
                                             trackedit::UndoPushType::CONSOLIDATE);
         m_domainChanged.notify();

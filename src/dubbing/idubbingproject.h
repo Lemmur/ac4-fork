@@ -45,6 +45,13 @@ struct WavImportResult {
     std::vector<std::string> errors;
 };
 
+//! Результат importProject: полный импорт (JSON + WAV) одним undo-шагом.
+struct ProjectImportResult {
+    JsonImportResult json;
+    WavImportResult wav;
+    bool ok = false; //!< json.ok && wav.ok
+};
+
 class IDubbingProject : MODULE_EXPORT_INTERFACE
 {
     INTERFACE_ID(IDubbingProject)
@@ -59,6 +66,12 @@ public:
     //! Массовый импорт WAV-референсов из папки (рекурсивно, "{guid}.wav"),
     //! одна референсная дорожка "REF <file_id>" на файл игры.
     virtual WavImportResult importWavFolder(const muse::io::path_t& folder) = 0;
+
+    //! Полный импорт проекта дубляжа: этапы JSON и WAV выполняются без
+    //! промежуточной записи отмены и завершаются ОДНИМ pushHistoryState
+    //! («Импорт дубляжа») — один Ctrl+Z возвращает к состоянию до импорта.
+    virtual ProjectImportResult importProject(const muse::io::path_t& jsonPath,
+                                              const muse::io::path_t& wavFolder) = 0;
 
     //! Правка RU-текста реплики (undo — штатный pushHistoryState, как в M1).
     virtual bool setLineRu(const std::string& guid, const std::string& text) = 0;

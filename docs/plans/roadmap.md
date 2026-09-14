@@ -177,8 +177,11 @@ M2.
   [`src/importexport/import/internal/au3/au3importer.h:35`](../../src/importexport/import/internal/au3/au3importer.h)),
   mod-pcm/libsndfile, `muse::Progress`.
 
-**Механизм отмены:** один `pushHistoryState(«Импорт дубляжа»)` на пакет
-(CONSOLIDATE); слияние метаданных — через `DubbingStateExtension`.
+**Механизм отмены:** ЕДИНЫЙ `pushHistoryState(«Импорт дубляжа»)` на весь
+импорт — объединённый `IDubbingProject::importProject(jsonPath, wavFolder)`
+(M2-followup): этапы JSON и WAV идут без промежуточного пуша, один Ctrl+Z
+возвращает к состоянию до импорта. Слияние метаданных — через
+`DubbingStateExtension`.
 
 **Сложность/риски:** средняя-высокая (десятки тысяч файлов, отмена
 большого пакета). Митигация: пакетная отмена одним состоянием; фоновый
@@ -221,11 +224,20 @@ M2.
    `DubbingJsonReader` читает значения через QJsonDocument, а порядок
    (orderIndex) снимает отдельным структурным сканером исходного текста
    (скобочный баланс с пропуском строк, import/dubbingjsonreader.cpp).
-6. Undo: JSON-пакет и WAV-пакет пушат РАЗНЫЕ описания
-   («Импорт метаданных дубляжа» / «Импорт дубляжа»), поэтому
-   UndoPush::CONSOLIDATE их не сливает (сливает только одинаковые
-   описания подряд, UndoManager.cpp:241-244); повторные однотипные
+6. Undo (уточнено во M2-followup): полный импорт выполняется объединённым
+   `importProject(jsonPath, wavFolder)` — этапы JSON -> WAV БЕЗ промежуточного
+   пуша, в завершение ОДИН `pushHistoryState(«Импорт дубляжа», CONSOLIDATE)`:
+   `UndoManager::Get(project).GetNumStates() == 2` после InitialState +
+   importProject, одна отмена возвращает к состоянию до импорта. Ограничений
+   со стороны au3 нет — PushState зовёт вызывающий (UndoManager.cpp:237-265;
+   CONSOLIDATE сливает только одинаковые описания подряд, UndoManager.cpp:241-244).
+   Самостоятельные `importFromJson` / `importWavFolder` сохраняют СВОИ пуши
+   («Импорт метаданных дубляжа» / «Импорт дубляжа» соответственно) —
+   гранулярность осознанная: точечный API для M3+; общий код этапов вынесен
+   в приватные `doImportJson` / `doImportWav` без пушей. Повторные однотипные
    пакеты консолидируются — стандартное поведение для частых действий.
+   Подтверждено тестами `UndoRestoresPreImportState` (GetNumStates == 2) и
+   `NeighbourMismatchDuration_CorrectClipMapping`.
 7. Тестовое окружение dubbing_tests: RegisterImportPlugins() в setPreInit
    (Importer::Initialize снимает снапшот реестра через std::call_once),
    headless-BasicUI (PCM-импорт репортит прогресс; Au3BasicUI строит

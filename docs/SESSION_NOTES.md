@@ -281,3 +281,42 @@ Smoke-тест как в CI: `dist\bin\Audacity4.exe --plugin-registration-self-
 
 **Открытые вопросы:** нет. Перенесено в M3: диалог импорта QML (прогресс/
 лог), настройки паттерна/порога, Q_INVOKABLE-QML-обёртки, фоновый поток.
+
+---
+
+## Сессия 2026-09-14 (пятая) — M2-followup: единый undo-шаг + тест соседних расхождений
+
+**Сделано (ветка feature/dubbing-m2-import, по трём требованиям владельца
+к условно принятому M2):**
+- П.3 (единый undo-шаг): доказано по коду — ограничения со стороны au3 НЕТ,
+  PushState зовёт вызывающий (UndoManager.cpp:237-265; CONSOLIDATE сливает
+  только одинаковые описания подряд, 241-244). Добавлен объединённый
+  `IDubbingProject::importProject(jsonPath, wavFolder)`: этапы JSON -> WAV
+  через приватные `doImportJson` / `doImportWav` (общий код, БЕЗ пушей —
+  не дублируется), в завершение ОДИН
+  `pushHistoryState(«Импорт дубляжа», CONSOLIDATE)`. Самостоятельные
+  `importFromJson` / `importWavFolder` сохраняют свои пуши — гранулярность
+  осознанная (точечный API M3+). Результат — `ProjectImportResult
+  { json, wav, ok }`.
+- П.3 (тесты): `UndoRestoresPreImportState` переведён на importProject:
+  явная проверка `UndoManager::Get(project).GetNumStates() == 2`
+  (InitialState + ОДНО импортное состояние); ОДИН undo возвращает мета
+  без файлов + нет REF-дорожек.
+- П.2 (новый тест): `NeighbourMismatchDuration_CorrectClipMapping` —
+  соседние расхождения в РАЗНЫЕ стороны (A: dur 1.861 -> WAV 1.2 с;
+  B: 1.075 -> 1.9; C: 1.732 -> 1.0; гуйды первой сцены sample.json),
+  через importProject: клипы подряд без наложений (start[i+1] == end[i],
+  допуск 1e-6), длительность каждого клипа == длительности ЕГО WAV
+  (не dur), ClipKey A/B/C -> первый/второй/третий клип дорожки
+  (Intervals()[i]->GetId()), предупреждений — 3 (знаки diff: -/+/-).
+- П.1: хвост лога сборки снят (см. отчёт сессии).
+- docs: roadmap §M2 «Механизм отмены» и примечание 6 переписаны под
+  importProject (один push; независимые методы — свои пуши).
+
+**Результаты:** сборка vcvars64 + `cmake --build build\audacity-release
+--target dubbing_tests audacity` — exit 0 (Audacity4.exe слинкован);
+`dubbing_tests.exe` — **10/10** (3 M1 + 7 M2, включая новый);
+полный ctest — **29/29 (100%)**, dubbing_tests в ctest — 3.47 c.
+
+**Открытые вопросы:** нет. M2 закрыт; пуш ветки и ff-обновление master
+выполнены по разрешению владельца.

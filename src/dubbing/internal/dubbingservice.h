@@ -4,7 +4,9 @@
 * Реализация IDubbingProject (M2): фасад над доменом DubbingProject текущего
 * проекта + читатель JSON + массовый импорт WAV. Отмена — только штатный
 * IProjectHistory: ОДИН pushHistoryState на пакет (CONSOLIDATE), метаданные
-* снимает DubbingStateExtension (механизм M1).
+* снимает DubbingStateExtension (механизм M1). importProject объединяет этапы
+* JSON и WAV в ЕДИНЫЙ undo-шаг; самостоятельные importFromJson/importWavFolder
+* сохраняют свои пушы (гранулярность осознанная — точечный API M3+).
 */
 #pragma once
 
@@ -30,6 +32,8 @@ public:
 
     JsonImportResult importFromJson(const muse::io::path_t& path) override;
     WavImportResult importWavFolder(const muse::io::path_t& folder) override;
+    ProjectImportResult importProject(const muse::io::path_t& jsonPath,
+                                      const muse::io::path_t& wavFolder) override;
     bool setLineRu(const std::string& guid, const std::string& text) override;
 
     muse::async::Notification domainChanged() const override { return m_domainChanged; }
@@ -39,6 +43,12 @@ public:
 
 private:
     AudacityProject* currentAu3Project() const;
+
+    //! Этапы импорта БЕЗ записи отмены: общий код самостоятельных методов
+    //! (importFromJson / importWavFolder) и объединённого importProject;
+    //! pushHistoryState делает вызывающий.
+    void doImportJson(AudacityProject& prj, const muse::io::path_t& path, JsonImportResult& result);
+    void doImportWav(AudacityProject& prj, const muse::io::path_t& folder, WavImportResult& result);
 
     DubbingImportService m_importService;
     DubbingJsonReader m_jsonReader;
