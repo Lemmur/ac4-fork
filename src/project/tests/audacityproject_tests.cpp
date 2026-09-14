@@ -195,6 +195,18 @@ TEST_F(Project_Audacity4ProjectTests, Load_FileDoesNotExist_ReturnsProjectFileNo
 
 TEST_F(Project_Audacity4ProjectTests, Load_FileCannotBeOpened_ReturnsCantOpen)
 {
+#ifdef _WIN32
+    // Windows: testtools "read protection" is FILE_ATTRIBUTE_HIDDEN, which
+    // does NOT deny reading. SQLite opens the file successfully, the project
+    // stays opened, and the fixture TearDown cannot close it — that keeps the
+    // DB connection alive (wx assert "Project file was not closed at
+    // shutdown" in ConnectionPtr::~ConnectionPtr, DBConnection.cpp:703) and
+    // holds the file handle, leaving empty_read_protected.aup4 undeletable.
+    // Unix-only semantics; skip on Windows instead of leaving a leaked
+    // connection and a red test.
+    GTEST_SKIP() << "Windows: FILE_ATTRIBUTE_HIDDEN does not deny read access (see testtools.h); "
+                    "requires POSIX permissions";
+#else
     const std::string srcPath = (muse::String::fromUtf8(au_project_tests_DATA_ROOT) + "/data/empty.aup4").toStdString();
     const std::string dstPath = (muse::String::fromUtf8(au_project_tests_DATA_ROOT) + "/data/empty_read_protected.aup4").toStdString();
 
@@ -206,6 +218,7 @@ TEST_F(Project_Audacity4ProjectTests, Load_FileCannotBeOpened_ReturnsCantOpen)
     EXPECT_EQ(ret.code(), SQLITE_CANTOPEN);
     EXPECT_TRUE(!ret.data<std::string>("body", std::string("")).empty());
     //can't close m_currentProject->close();
+#endif
 }
 
 TEST_F(Project_Audacity4ProjectTests, Load_EmptyFileIsWriteProtected_ReturnsReadOnly)

@@ -114,6 +114,11 @@ inline bool removeIfExists(const std::string& path)
     if (!fileExists(path)) {
         return true; // File does not exist, nothing to remove
     }
+#if defined(_WIN32)
+    // Read-only/hidden attributes (set by the protect* helpers) make
+    // std::remove fail on Windows; clear them before deleting.
+    SetFileAttributesA(path.c_str(), FILE_ATTRIBUTE_NORMAL);
+#endif
     if (std::remove(path.c_str()) != 0) {
         std::cerr << "removeIfExists: failed to remove file: '" << path << "'\n";
         return false;
